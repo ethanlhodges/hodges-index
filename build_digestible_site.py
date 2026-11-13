@@ -250,7 +250,7 @@ def build_site_payload():
     mover1 = max(top80, key=lambda x: x["vs_prior"])
 
     return {
-        "updated_at": latest_dt.strftime("%b %d, %Y").replace(" 0", " "),
+        "updated_at": eastern_today.strftime("%b %d, %Y").replace(" 0", " "),
         "games_count": len(games_27),
         "avg_games": round(avg_g, 1),
         "prior_weight": round(pw, 2),

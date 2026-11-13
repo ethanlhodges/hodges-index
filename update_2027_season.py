@@ -20,11 +20,20 @@ def fetch_latest_2027_data():
         ("https://barttorvik.com/2027_super_sked.json", DATA_DIR / "2027_super_sked.json"),
         ("https://barttorvik.com/2027_team_results.json", DATA_DIR / "2027_team_results.json"),
     ]
-    for url, dest in urls:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            dest.write_bytes(resp.read())
-    print("✓ Downloaded latest 2026-27 game logs & team records.")
+    headers = {
+        "User-Agent": "HodgesIndex/1.0 (+https://ethanlhodges.github.io/hodges-index/)",
+        "Accept": "application/json",
+    }
+    try:
+        for url, dest in urls:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = resp.read()
+                if len(data) > 1000:
+                    dest.write_bytes(data)
+        print("✓ Downloaded latest 2026-27 game logs & team records.")
+    except Exception as exc:
+        print(f"! Notice: Remote fetch returned ({exc}); rebuilding daily slate from cached schedule.")
 
 
 if __name__ == "__main__":
