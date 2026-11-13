@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Renders HodgesIndex (index.html, generated_site.html, and artifact copies)
-with a standalone, rock-solid Light & Dark theme system (no transparent
-modals or undefined CSS variables on GitHub Pages!), basketball-inspired
-accents, rank-tier pills, visual efficiency bars, and a user-friendly + fun UI.
+with a clean, authentic sports-analytics design:
+- Solid standalone Light & Dark themes (opaque modals & sticky headers on GitHub Pages)
+- Zero emojis, zero AI-template cards, crisp editorial typography & tabular numbers
 """
 
 from pathlib import Path
@@ -17,31 +17,30 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HodgesIndex · 2026–27 D-I College Basketball Ratings</title>
+  <title>HodgesIndex · 2026–27 College Basketball Ratings</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <style>
-    /* Standalone solid color tokens that work identically on GitHub Pages and in-app */
     html.light {
       --hi-bg: #f8fafc;
       --hi-surface: #ffffff;
       --hi-surface-alt: #f1f5f9;
-      --hi-surface-hover: #fff7ed;
+      --hi-surface-hover: #f8fafc;
       --hi-border: #e2e8f0;
       --hi-text: #0f172a;
       --hi-muted: #64748b;
-      --hi-accent: #ea580c;
+      --hi-accent: #c2410c;
       --hi-accent-soft: #ffedd5;
       --hi-accent-text: #9a3412;
-      --hi-pos: #059669;
-      --hi-neg: #e11d48;
-      --hi-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
-      --hi-modal-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
+      --hi-pos: #047857;
+      --hi-neg: #be123c;
+      --hi-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+      --hi-modal-shadow: 0 20px 40px -10px rgba(15, 23, 42, 0.35);
     }
     html.dark {
       --hi-bg: #0b0f19;
       --hi-surface: #111827;
       --hi-surface-alt: #1e293b;
-      --hi-surface-hover: #1f2937;
+      --hi-surface-hover: #1a2333;
       --hi-border: #1f2937;
       --hi-text: #f8fafc;
       --hi-muted: #94a3b8;
@@ -50,8 +49,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       --hi-accent-text: #fdba74;
       --hi-pos: #10b981;
       --hi-neg: #f43f5e;
-      --hi-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
-      --hi-modal-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+      --hi-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      --hi-modal-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.75);
     }
 
     body {
@@ -84,10 +83,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
     .hi-row {
       border-bottom: 1px solid var(--hi-border);
-      transition: background-color 0.12s ease;
+      transition: background-color 0.1s ease;
     }
     .hi-row:hover {
-      background-color: var(--hi-surface-hover);
+      background-color: var(--hi-surface-alt);
     }
     .tabular-nums { font-variant-numeric: tabular-nums; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -97,159 +96,118 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body class="antialiased min-h-screen p-4 md:p-8">
 
-  <div class="max-w-6xl mx-auto space-y-6">
+  <div class="max-w-5xl mx-auto space-y-5">
 
-    <!-- Top Brand Header -->
-    <header class="hi-card rounded-2xl p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div class="flex items-center gap-3.5">
-        <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl shadow-xs" style="background: linear-gradient(135deg, #ea580c, #f97316); color: white;">
-          🏀
+    <!-- Clean Editorial Masthead -->
+    <header class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4" style="border-bottom: 2px solid var(--hi-text);">
+      <div>
+        <div class="flex items-baseline gap-3">
+          <h1 class="text-2xl font-bold tracking-tight">HodgesIndex</h1>
+          <span class="text-xs font-medium" style="color: var(--hi-muted);">2026–27 D-I College Basketball</span>
         </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-xl md:text-2xl font-extrabold tracking-tight">HodgesIndex</h1>
-            <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background-color: var(--hi-accent-soft); color: var(--hi-accent-text);">
-              2026–27 LIVE
-            </span>
-          </div>
-          <p class="text-xs mt-0.5" style="color: var(--hi-muted);">
-            Updated <strong id="hdr-date" style="color: var(--hi-text);">—</strong> ·
-            <span id="hdr-games">—</span> D-I games ·
-            Prior weight: <span id="hdr-prior" class="font-mono font-semibold" style="color: var(--hi-text);">—</span>
-          </p>
-        </div>
+        <p class="text-xs mt-1" style="color: var(--hi-muted);">
+          Updated <span id="hdr-date" class="font-medium" style="color: var(--hi-text);">—</span> ·
+          <span id="hdr-games">—</span> games ·
+          Prior weight <span id="hdr-prior" class="font-mono tabular-nums" style="color: var(--hi-text);">—</span>
+        </p>
       </div>
 
-      <!-- Navigation Pills + Theme Toggle -->
-      <div class="flex flex-wrap items-center gap-2">
-        <nav class="inline-flex rounded-xl p-1" style="background-color: var(--hi-surface-alt); border: 1px solid var(--hi-border);">
-          <button onclick="switchMainTab('rankings')" id="nav-rankings" class="px-3.5 py-1.5 text-xs font-bold rounded-lg transition">
-            🏆 Rankings
+      <div class="flex items-center gap-5 text-sm">
+        <nav class="flex items-center gap-5">
+          <button onclick="switchMainTab('rankings')" id="nav-rankings" class="pb-1 font-semibold transition cursor-pointer">
+            Rankings
           </button>
-          <button onclick="switchMainTab('slate')" id="nav-slate" class="px-3.5 py-1.5 text-xs font-bold rounded-lg transition">
-            📅 Games Slate
+          <button onclick="switchMainTab('slate')" id="nav-slate" class="pb-1 font-medium transition cursor-pointer">
+            Games
           </button>
-          <button onclick="switchMainTab('matchup')" id="nav-matchup" class="px-3.5 py-1.5 text-xs font-bold rounded-lg transition">
-            ⚔️ Predictor
+          <button onclick="switchMainTab('matchup')" id="nav-matchup" class="pb-1 font-medium transition cursor-pointer">
+            Predictor
           </button>
-          <button onclick="switchMainTab('model')" id="nav-model" class="px-3.5 py-1.5 text-xs font-bold rounded-lg transition">
-            📐 Methodology
+          <button onclick="switchMainTab('model')" id="nav-model" class="pb-1 font-medium transition cursor-pointer">
+            Methodology
           </button>
         </nav>
 
-        <button onclick="toggleTheme()" id="theme-btn" title="Switch Light / Dark Mode"
-          class="px-3 py-2 text-xs font-semibold rounded-xl hi-subcard hover:opacity-80 transition cursor-pointer">
-          🌙 Dark
+        <button onclick="toggleTheme()" id="theme-btn"
+          class="px-2.5 py-1 text-xs font-medium rounded border transition cursor-pointer"
+          style="border-color: var(--hi-border); color: var(--hi-muted); background-color: var(--hi-surface);">
+          Dark
         </button>
       </div>
     </header>
 
-    <!-- Fun Season Pulse Strip -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      <div class="hi-card rounded-xl p-3.5 flex items-center justify-between cursor-pointer hover:opacity-95 transition" onclick="openTopCard('no1')">
-        <div>
-          <div class="text-xs font-medium" style="color: var(--hi-muted);">👑 #1 Overall</div>
-          <div id="pulse-no1" class="text-sm md:text-base font-extrabold mt-0.5">—</div>
-          <div id="pulse-no1-sub" class="text-xs font-mono font-semibold mt-0.5" style="color: var(--hi-pos);">—</div>
-        </div>
-      </div>
-      <div class="hi-card rounded-xl p-3.5 flex items-center justify-between cursor-pointer hover:opacity-95 transition" onclick="openTopCard('off1')">
-        <div>
-          <div class="text-xs font-medium" style="color: var(--hi-muted);">🔥 #1 Offense (AdjO)</div>
-          <div id="pulse-off1" class="text-sm md:text-base font-extrabold mt-0.5">—</div>
-          <div id="pulse-off1-sub" class="text-xs font-mono mt-0.5" style="color: var(--hi-muted);">—</div>
-        </div>
-      </div>
-      <div class="hi-card rounded-xl p-3.5 flex items-center justify-between cursor-pointer hover:opacity-95 transition" onclick="openTopCard('def1')">
-        <div>
-          <div class="text-xs font-medium" style="color: var(--hi-muted);">🛡️ #1 Defense (AdjD)</div>
-          <div id="pulse-def1" class="text-sm md:text-base font-extrabold mt-0.5">—</div>
-          <div id="pulse-def1-sub" class="text-xs font-mono mt-0.5" style="color: var(--hi-muted);">—</div>
-        </div>
-      </div>
-      <div class="hi-card rounded-xl p-3.5 flex items-center justify-between cursor-pointer hover:opacity-95 transition" onclick="openTopCard('mover1')">
-        <div>
-          <div class="text-xs font-medium" style="color: var(--hi-muted);">🚀 Hottest Start vs Prior</div>
-          <div id="pulse-mover" class="text-sm md:text-base font-extrabold mt-0.5" style="color: var(--hi-pos);">—</div>
-          <div id="pulse-mover-sub" class="text-xs font-mono mt-0.5" style="color: var(--hi-muted);">—</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ==================== TAB 1: FULL-WIDTH RANKINGS ==================== -->
-    <section id="tab-rankings" class="space-y-3.5">
-      <!-- Controls Bar -->
-      <div class="hi-card rounded-xl p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div class="flex flex-wrap items-center gap-2.5">
-          <input id="rank-search" type="text" placeholder="🔍 Search team (e.g. Duke, Virginia)..." oninput="renderRankingsTable()"
-            class="hi-input px-3 py-1.5 text-xs rounded-lg w-56" />
-          <select id="rank-conf" onchange="renderRankingsTable()" class="hi-input px-2.5 py-1.5 text-xs rounded-lg cursor-pointer">
+    <!-- ==================== TAB 1: RANKINGS TABLE ==================== -->
+    <section id="tab-rankings" class="space-y-3">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <input id="rank-search" type="text" placeholder="Filter team..." oninput="renderRankingsTable()"
+            class="hi-input px-3 py-1.5 text-xs rounded-md w-48" />
+          <select id="rank-conf" onchange="renderRankingsTable()" class="hi-input px-2.5 py-1.5 text-xs rounded-md cursor-pointer">
             <option value="ALL">All Conferences</option>
           </select>
-          <select id="rank-sort" onchange="renderRankingsTable()" class="hi-input px-2.5 py-1.5 text-xs rounded-lg cursor-pointer">
+          <select id="rank-sort" onchange="renderRankingsTable()" class="hi-input px-2.5 py-1.5 text-xs rounded-md cursor-pointer">
             <option value="adj_em">Sort: Overall (AdjEM)</option>
-            <option value="adj_o">Sort: Best Offense (AdjO)</option>
-            <option value="adj_d">Sort: Best Defense (AdjD)</option>
-            <option value="tempo">Sort: Fastest Pace (AdjT)</option>
+            <option value="adj_o">Sort: Offense (AdjO)</option>
+            <option value="adj_d">Sort: Defense (AdjD)</option>
+            <option value="tempo">Sort: Tempo (AdjT)</option>
           </select>
         </div>
 
         <div class="flex flex-wrap items-center gap-4">
-          <label class="inline-flex items-center gap-2 text-xs font-semibold cursor-pointer select-none px-2.5 py-1.5 rounded-lg hi-subcard">
-            <input id="toggle-prior" type="checkbox" checked onchange="onTogglePrior()" class="rounded accent-orange-600 cursor-pointer" />
+          <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none" style="color: var(--hi-muted);">
+            <input id="toggle-prior" type="checkbox" checked onchange="onTogglePrior()" class="rounded cursor-pointer" style="accent-color: var(--hi-accent);" />
             <span>Include prior-season weighting</span>
           </label>
-          <span id="rank-count-label" class="text-xs" style="color: var(--hi-muted);">Click any team for resume</span>
+          <span id="rank-count-label" class="text-xs tabular-nums" style="color: var(--hi-muted);">365 teams</span>
         </div>
       </div>
 
-      <!-- Leaderboard Table -->
-      <div class="hi-card rounded-2xl overflow-hidden">
-        <div class="overflow-x-auto max-h-[640px] overflow-y-auto">
+      <div class="hi-card rounded-lg overflow-hidden">
+        <div class="overflow-x-auto max-h-[660px] overflow-y-auto">
           <table class="w-full text-left border-collapse">
-            <thead class="sticky top-0 z-10 text-xs uppercase tracking-wider" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
+            <thead class="sticky top-0 z-10 text-xs" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
               <tr>
-                <th class="py-3 px-4 font-bold w-14">Rk</th>
-                <th class="py-3 px-4 font-bold">Team</th>
-                <th class="py-3 px-3 font-bold">Conf</th>
-                <th class="py-3 px-3 font-bold">Rec</th>
-                <th class="py-3 px-4 font-bold text-right" title="Adjusted Efficiency Margin (Pts/100 poss vs average D-I opponent)">AdjEM</th>
-                <th class="py-3 px-4 font-bold text-right" title="Adjusted Offensive Efficiency (Pts scored per 100 poss)">AdjO (Rk)</th>
-                <th class="py-3 px-4 font-bold text-right" title="Adjusted Defensive Efficiency (Pts allowed per 100 poss — lower is better)">AdjD (Rk)</th>
-                <th class="py-3 px-4 font-bold text-right" title="Adjusted Tempo (Possessions per 40 min)">AdjT</th>
+                <th class="py-2.5 px-3.5 font-semibold w-12">Rk</th>
+                <th class="py-2.5 px-3.5 font-semibold">Team</th>
+                <th class="py-2.5 px-3 font-semibold">Conf</th>
+                <th class="py-2.5 px-3 font-semibold">W–L</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right" title="Adjusted Efficiency Margin">AdjEM</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right" title="Adjusted Offensive Efficiency">AdjO</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right" title="Adjusted Defensive Efficiency">AdjD</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right" title="Adjusted Tempo">AdjT</th>
               </tr>
             </thead>
             <tbody id="rankings-tbody" class="text-sm"></tbody>
           </table>
         </div>
-        <div class="px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-top: 1px solid var(--hi-border);">
-          <span><strong style="color: #d97706;">⛰️ ALT</strong> = High-Altitude Home Venue (+1.55 pts/100 poss elevation boost)</span>
-          <span>Click any row to open full game log & Four Factors</span>
+        <div class="px-3.5 py-2 text-xs flex flex-wrap items-center justify-between gap-2" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-top: 1px solid var(--hi-border);">
+          <span><strong>ALT</strong> = High-altitude home venue (+1.55 pts/100 poss elevation adjustment)</span>
+          <span>Click any team for game log</span>
         </div>
       </div>
     </section>
 
-    <!-- ==================== TAB 2: DAILY GAMES SLATE ==================== -->
-    <section id="tab-slate" class="hidden space-y-4">
-      <div class="hi-card rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div id="slate-filter-btns" class="flex flex-wrap items-center gap-2"></div>
-        <label class="inline-flex items-center gap-2 text-xs font-semibold cursor-pointer px-2.5 py-1.5 rounded-lg hi-subcard">
-          <input id="slate-featured-only" type="checkbox" checked onchange="renderSlate()" class="rounded accent-orange-600 cursor-pointer" />
-          <span>Featured matchups only (Top 60 teams)</span>
+    <!-- ==================== TAB 2: GAMES SLATE ==================== -->
+    <section id="tab-slate" class="hidden space-y-3">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div id="slate-filter-btns" class="flex flex-wrap items-center gap-1.5"></div>
+        <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--hi-muted);">
+          <input id="slate-featured-only" type="checkbox" checked onchange="renderSlate()" class="rounded cursor-pointer" style="accent-color: var(--hi-accent);" />
+          <span>Featured games only (Top 60)</span>
         </label>
       </div>
 
-      <div class="hi-card rounded-2xl overflow-hidden">
+      <div class="hi-card rounded-lg overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
-            <thead class="text-xs uppercase tracking-wider" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
+            <thead class="text-xs" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
               <tr>
-                <th class="py-3 px-4 font-bold">Date</th>
-                <th class="py-3 px-4 font-bold">Matchup</th>
-                <th class="py-3 px-4 font-bold text-right">Projected Score</th>
-                <th class="py-3 px-4 font-bold text-right">HodgesIndex Line</th>
-                <th class="py-3 px-4 font-bold text-right">Win Prob</th>
-                <th class="py-3 px-4 font-bold text-right">Status / Result</th>
+                <th class="py-2.5 px-4 font-semibold">Date</th>
+                <th class="py-2.5 px-4 font-semibold">Matchup</th>
+                <th class="py-2.5 px-4 font-semibold text-right">Projection</th>
+                <th class="py-2.5 px-4 font-semibold text-right">Line</th>
+                <th class="py-2.5 px-4 font-semibold text-right">Win Prob</th>
+                <th class="py-2.5 px-4 font-semibold text-right">Status</th>
               </tr>
             </thead>
             <tbody id="slate-tbody" class="text-sm"></tbody>
@@ -259,62 +217,59 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </section>
 
     <!-- ==================== TAB 3: HEAD-TO-HEAD PREDICTOR ==================== -->
-    <section id="tab-matchup" class="hidden max-w-2xl mx-auto space-y-5 pt-2">
-      <div class="hi-card rounded-2xl p-6 space-y-5">
+    <section id="tab-matchup" class="hidden max-w-2xl mx-auto pt-2">
+      <div class="hi-card rounded-lg p-6 space-y-5">
         <div class="flex items-center justify-between border-b pb-3" style="border-color: var(--hi-border);">
           <div>
-            <h2 class="text-base font-extrabold">⚔️ Head-to-Head Matchup Simulator</h2>
-            <p class="text-xs mt-0.5" style="color: var(--hi-muted);">Compare any two D-I teams on a Neutral, Home, or Away court.</p>
+            <h2 class="text-base font-bold">Matchup Predictor</h2>
+            <p class="text-xs mt-0.5" style="color: var(--hi-muted);">Neutral, Home, or Away projection using current HodgesIndex ratings.</p>
           </div>
-          <button onclick="swapSimTeams()" class="px-2.5 py-1 text-xs font-semibold rounded-lg hi-subcard hover:opacity-80 cursor-pointer">
-            ⇄ Swap Teams
+          <button onclick="swapSimTeams()" class="px-2.5 py-1 text-xs font-medium rounded hi-subcard hover:opacity-80 cursor-pointer">
+            Swap Teams
           </button>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="text-xs font-semibold block mb-1.5" style="color: var(--hi-muted);">Team A</label>
-            <select id="sim-a" onchange="runMatchupSim()" class="hi-input w-full text-sm rounded-xl p-2.5 font-medium cursor-pointer"></select>
+            <label class="text-xs font-medium block mb-1" style="color: var(--hi-muted);">Team A</label>
+            <select id="sim-a" onchange="runMatchupSim()" class="hi-input w-full text-sm rounded-md p-2 cursor-pointer"></select>
           </div>
           <div>
-            <label class="text-xs font-semibold block mb-1.5" style="color: var(--hi-muted);">Team B</label>
-            <select id="sim-b" onchange="runMatchupSim()" class="hi-input w-full text-sm rounded-xl p-2.5 font-medium cursor-pointer"></select>
+            <label class="text-xs font-medium block mb-1" style="color: var(--hi-muted);">Team B</label>
+            <select id="sim-b" onchange="runMatchupSim()" class="hi-input w-full text-sm rounded-md p-2 cursor-pointer"></select>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          <span class="text-xs font-medium mr-1" style="color: var(--hi-muted);">Venue:</span>
-          <button onclick="setSimLoc('neutral')" id="loc-neutral" class="px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer">Neutral Court</button>
-          <button onclick="setSimLoc('home_b')" id="loc-home_b" class="px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer">At Team B Home</button>
-          <button onclick="setSimLoc('home_a')" id="loc-home_a" class="px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer">At Team A Home</button>
+          <button onclick="setSimLoc('neutral')" id="loc-neutral" class="px-3 py-1.5 text-xs font-medium rounded-md transition cursor-pointer">Neutral</button>
+          <button onclick="setSimLoc('home_b')" id="loc-home_b" class="px-3 py-1.5 text-xs font-medium rounded-md transition cursor-pointer">At Team B</button>
+          <button onclick="setSimLoc('home_a')" id="loc-home_a" class="px-3 py-1.5 text-xs font-medium rounded-md transition cursor-pointer">At Team A</button>
         </div>
 
-        <div class="hi-subcard rounded-2xl p-5 space-y-4">
+        <div class="hi-subcard rounded-lg p-5 space-y-4">
           <div class="flex items-center justify-between">
             <div>
-              <div id="sim-name-a" class="text-xs font-bold" style="color: var(--hi-muted);">—</div>
-              <div id="sim-pts-a" class="text-3xl font-extrabold tabular-nums mt-0.5">—</div>
+              <div id="sim-name-a" class="text-xs font-medium" style="color: var(--hi-muted);">—</div>
+              <div id="sim-pts-a" class="text-3xl font-bold tabular-nums mt-0.5">—</div>
             </div>
             <div class="text-center px-3">
-              <div id="sim-line-badge" class="inline-block px-3 py-1 rounded-full text-xs font-extrabold" style="background-color: var(--hi-accent-soft); color: var(--hi-accent-text);">
-                —
-              </div>
-              <div id="sim-total-sub" class="text-xs mt-1.5 tabular-nums" style="color: var(--hi-muted);">—</div>
+              <div id="sim-line-badge" class="text-sm font-bold">—</div>
+              <div id="sim-total-sub" class="text-xs mt-0.5 tabular-nums" style="color: var(--hi-muted);">—</div>
             </div>
             <div class="text-right">
-              <div id="sim-name-b" class="text-xs font-bold" style="color: var(--hi-muted);">—</div>
-              <div id="sim-pts-b" class="text-3xl font-extrabold tabular-nums mt-0.5">—</div>
+              <div id="sim-name-b" class="text-xs font-medium" style="color: var(--hi-muted);">—</div>
+              <div id="sim-pts-b" class="text-3xl font-bold tabular-nums mt-0.5">—</div>
             </div>
           </div>
 
-          <div class="w-full h-3 rounded-full overflow-hidden flex" style="background-color: var(--hi-border);">
-            <div id="sim-bar-a" class="h-full transition-all duration-200" style="width: 50%; background-color: #ea580c;"></div>
-            <div id="sim-bar-b" class="h-full transition-all duration-200" style="width: 50%; background-color: #3b82f6;"></div>
+          <div class="w-full h-2 rounded-full overflow-hidden flex" style="background-color: var(--hi-border);">
+            <div id="sim-bar-a" class="h-full transition-all duration-200" style="width: 50%; background-color: var(--hi-accent);"></div>
+            <div id="sim-bar-b" class="h-full transition-all duration-200" style="width: 50%; background-color: #475569;"></div>
           </div>
 
-          <div class="flex justify-between text-xs font-bold tabular-nums">
-            <span id="sim-prob-a" style="color: #ea580c;">—</span>
-            <span id="sim-prob-b" style="color: #3b82f6;">—</span>
+          <div class="flex justify-between text-xs font-medium tabular-nums" style="color: var(--hi-muted);">
+            <span id="sim-prob-a">—</span>
+            <span id="sim-prob-b">—</span>
           </div>
 
           <div id="sim-math-breakdown" class="pt-3 border-t flex flex-col sm:flex-row justify-between gap-2 text-xs" style="border-color: var(--hi-border); color: var(--hi-muted);"></div>
@@ -322,75 +277,72 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
     </section>
 
-    <!-- ==================== TAB 4: METHODOLOGY BLURB ==================== -->
+    <!-- ==================== TAB 4: METHODOLOGY ==================== -->
     <section id="tab-model" class="hidden max-w-3xl mx-auto">
-      <div class="hi-card rounded-2xl p-6 md:p-8 space-y-5 text-sm leading-relaxed">
-        <h2 class="text-lg font-extrabold">How HodgesIndex Works</h2>
+      <div class="hi-card rounded-lg p-6 md:p-8 space-y-4 text-sm leading-relaxed">
+        <h2 class="text-base font-bold">Methodology</h2>
         <p style="color: var(--hi-muted);">
-          These ratings measure how many points per 100 possessions a college basketball team would outscore an average Division I opponent on a neutral court (<strong>Adjusted Efficiency Margin</strong>, or <code class="text-xs px-1.5 py-0.5 rounded hi-subcard font-mono">AdjEM</code>). Every morning, our model ingests every completed D-I box score and solves a simultaneous <strong>Weighted Ridge Regression</strong> across all 365 teams to separate true team quality from schedule strength and home-court advantage.
+          HodgesIndex measures how many points per 100 possessions a Division I team would outscore an average opponent on a neutral court (<strong>Adjusted Efficiency Margin</strong>, or <code class="text-xs px-1 py-0.5 rounded hi-subcard font-mono">AdjEM</code>). Every morning, the model ingests all completed D-I box scores and solves a simultaneous <strong>Weighted Ridge Regression</strong> across all 365 teams.
         </p>
-        <ul class="space-y-3 list-disc pl-5" style="color: var(--hi-muted);">
-          <li><strong style="color: var(--hi-text);">Tempo-Free & Possession-Weighted:</strong> Every game is converted into points per 100 possessions (<code class="text-xs font-mono">AdjO</code> for offense, <code class="text-xs font-mono">AdjD</code> for defense) and weighted by possessions. A separate Ridge solve computes opponent-adjusted pace (<code class="text-xs font-mono">AdjT</code>).</li>
-          <li><strong style="color: var(--hi-text);">3-Point Luck Filtering:</strong> Using Empirical Bayes shrinkage toward the 34.0% D-I average, we regress 15% of single-game 3-point shooting variance back to each team's baseline so hot or cold shooting nights don't distort long-term ratings.</li>
-          <li><strong style="color: var(--hi-text);">Garbage-Time Cap & Recency:</strong> Blowouts beyond 35 points per 100 possessions receive diminishing returns (25% slope), while a gentle daily decay (<code class="text-xs font-mono">0.9975/day</code>) gives slightly more weight to recent form.</li>
-          <li><strong style="color: var(--hi-text);">Fading Preseason Priors:</strong> Early-season ratings are anchored toward a regressed prior from last season that automatically fades to <strong>zero</strong> once teams reach 14 games played in January—meaning conference play and March Madness are 100% earned on this season's court.</li>
-          <li><strong style="color: var(--hi-text);">Altitude-Aware Home Court:</strong> Beyond standard home-court advantage (+4.0 pts/100 possessions), our model learns a dedicated elevation boost (+1.55 pts/100) for high-altitude Mountain West and Big 12 venues.</li>
+        <ul class="space-y-2.5 list-disc pl-5" style="color: var(--hi-muted);">
+          <li><strong style="color: var(--hi-text);">Tempo-Free & Possession-Weighted:</strong> Games are evaluated per 100 possessions (<code class="text-xs font-mono">AdjO</code> and <code class="text-xs font-mono">AdjD</code>) and weighted by possessions. A separate Ridge solve computes opponent-adjusted pace (<code class="text-xs font-mono">AdjT</code>).</li>
+          <li><strong style="color: var(--hi-text);">3-Point Luck Filtering:</strong> Using Empirical Bayes shrinkage toward the 34.0% D-I mean, 15% of single-game 3-point shooting variance is regressed back to each team's baseline before solving the ratings.</li>
+          <li><strong style="color: var(--hi-text);">Garbage-Time Cap & Recency:</strong> Single-game margins beyond 35 points per 100 possessions receive diminishing returns (25% slope), paired with a daily recency weight (<code class="text-xs font-mono">0.9975/day</code>).</li>
+          <li><strong style="color: var(--hi-text);">Fading Preseason Priors:</strong> Early-season ratings blend a 0.90x prior from last season that decays linearly to zero by Game 14 in January. You can uncheck <em>Include prior-season weighting</em> at any time to view pure in-season ratings.</li>
+          <li><strong style="color: var(--hi-text);">Altitude Home Court:</strong> In addition to standard home-court advantage (+4.0 pts/100 possessions), high-elevation venues receive a learned +1.55 pts/100 adjustment.</li>
         </ul>
-        <p class="text-xs pt-3 border-t" style="border-color: var(--hi-border); color: var(--hi-muted);">
-          Every hyperparameter was selected via chronological walk-forward backtesting across 5,500+ out-of-sample D-I games (70.7% straight-up winner accuracy, 9.03-point Jan–Apr spread MAE, and 0.5476 log-loss).
-        </p>
       </div>
     </section>
 
   </div>
 
-  <!-- Solid, Opaque Team Resume Modal -->
-  <div id="team-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background-color: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px);" onclick="if(event.target===this) closeTeamModal()">
-    <div class="hi-modal-card rounded-2xl max-w-xl w-full p-5 md:p-6 space-y-4 max-h-[85vh] flex flex-col">
-      <div class="flex items-start justify-between border-b pb-3.5" style="border-color: var(--hi-border);">
+  <!-- Solid Opaque Team Resume Modal -->
+  <div id="team-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background-color: rgba(15, 23, 42, 0.6);" onclick="if(event.target===this) closeTeamModal()">
+    <div class="hi-modal-card rounded-lg max-w-xl w-full p-5 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-start justify-between border-b pb-3" style="border-color: var(--hi-border);">
         <div>
-          <div class="flex items-center gap-2.5">
-            <span id="modal-rk" class="text-xs font-extrabold px-2.5 py-1 rounded-lg" style="background-color: var(--hi-accent-soft); color: var(--hi-accent-text);">#1</span>
-            <h3 id="modal-name" class="text-xl font-extrabold">—</h3>
+          <div class="flex items-baseline gap-2">
+            <span id="modal-rk" class="text-sm font-mono font-bold" style="color: var(--hi-muted);">#1</span>
+            <h3 id="modal-name" class="text-lg font-bold">—</h3>
           </div>
-          <p id="modal-sub" class="text-xs mt-1" style="color: var(--hi-muted);">—</p>
+          <p id="modal-sub" class="text-xs mt-0.5" style="color: var(--hi-muted);">—</p>
         </div>
-        <button onclick="closeTeamModal()" class="text-xs font-bold px-3 py-1.5 rounded-lg hi-subcard hover:opacity-80 cursor-pointer">✕ Close</button>
+        <button onclick="closeTeamModal()" class="text-xs font-medium px-2.5 py-1 rounded hi-subcard hover:opacity-80 cursor-pointer">Close</button>
       </div>
 
-      <div class="grid grid-cols-4 gap-2.5 text-center text-xs">
-        <div class="p-3 rounded-xl hi-subcard">
+      <div class="grid grid-cols-4 gap-2 text-center text-xs">
+        <div class="p-2.5 rounded hi-subcard">
           <div style="color: var(--hi-muted);">AdjEM</div>
-          <div id="modal-em" class="font-mono font-extrabold text-sm mt-0.5">—</div>
+          <div id="modal-em" class="font-mono font-bold text-sm mt-0.5">—</div>
         </div>
-        <div class="p-3 rounded-xl hi-subcard">
+        <div class="p-2.5 rounded hi-subcard">
           <div style="color: var(--hi-muted);">AdjO</div>
-          <div id="modal-adjo" class="font-mono font-extrabold text-sm mt-0.5">—</div>
+          <div id="modal-adjo" class="font-mono font-bold text-sm mt-0.5">—</div>
         </div>
-        <div class="p-3 rounded-xl hi-subcard">
+        <div class="p-2.5 rounded hi-subcard">
           <div style="color: var(--hi-muted);">AdjD</div>
-          <div id="modal-adjd" class="font-mono font-extrabold text-sm mt-0.5">—</div>
+          <div id="modal-adjd" class="font-mono font-bold text-sm mt-0.5">—</div>
         </div>
-        <div class="p-3 rounded-xl hi-subcard">
+        <div class="p-2.5 rounded hi-subcard">
           <div style="color: var(--hi-muted);">AdjT</div>
-          <div id="modal-tempo" class="font-mono font-extrabold text-sm mt-0.5">—</div>
+          <div id="modal-tempo" class="font-mono font-bold text-sm mt-0.5">—</div>
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center justify-between gap-2 text-xs px-1" style="color: var(--hi-muted);">
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs px-0.5" style="color: var(--hi-muted);">
         <span id="modal-ff" class="font-mono">—</span>
-        <button onclick="sendModalTeamToSim()" class="font-bold hover:underline cursor-pointer" style="color: var(--hi-accent);">Simulate matchup →</button>
+        <button onclick="sendModalTeamToSim()" class="font-medium hover:underline cursor-pointer" style="color: var(--hi-accent);">Open in Predictor →</button>
       </div>
 
       <div class="overflow-y-auto flex-1 border-t pt-2" style="border-color: var(--hi-border);">
         <table class="w-full text-left border-collapse text-xs">
           <thead style="color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
             <tr>
-              <th class="py-2 px-2 font-bold">Date</th>
-              <th class="py-2 px-2 font-bold">Loc</th>
-              <th class="py-2 px-2 font-bold">Opponent</th>
-              <th class="py-2 px-2 font-bold">Result</th>
-              <th class="py-2 px-2 font-bold text-right">ORtg / DRtg</th>
+              <th class="py-1.5 px-2 font-semibold">Date</th>
+              <th class="py-1.5 px-2 font-semibold">Loc</th>
+              <th class="py-1.5 px-2 font-semibold">Opponent</th>
+              <th class="py-1.5 px-2 font-semibold">Result</th>
+              <th class="py-1.5 px-2 font-semibold text-right">ORtg / DRtg</th>
             </tr>
           </thead>
           <tbody id="modal-logs-tbody"></tbody>
@@ -411,7 +363,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     let activeSlateFilter = 'ALL';
     let simLoc = 'neutral';
     let usePrior = true;
-    let activeTab = 'rankings';
 
     function toggleTheme() {
       const root = document.documentElement;
@@ -419,11 +370,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       if (isDark) {
         root.classList.remove('dark');
         root.classList.add('light');
-        document.getElementById('theme-btn').textContent = '🌙 Dark';
+        document.getElementById('theme-btn').textContent = 'Dark';
       } else {
         root.classList.remove('light');
         root.classList.add('dark');
-        document.getElementById('theme-btn').textContent = '☀️ Light';
+        document.getElementById('theme-btn').textContent = 'Light';
       }
     }
 
@@ -437,53 +388,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     function onTogglePrior() {
       usePrior = document.getElementById('toggle-prior').checked;
       document.getElementById('hdr-prior').textContent = usePrior ? SITE_DATA.prior_weight : '0 (2026–27 only)';
-      updatePulseCards();
       renderRankingsTable();
       renderSlate();
       runMatchupSim();
     }
 
-    function updatePulseCards() {
-      const sortedByEM = [...TEAMS].sort((a, b) => tv(b).adj_em - tv(a).adj_em);
-      const sortedByO = [...TEAMS].sort((a, b) => tv(b).adj_o - tv(a).adj_o);
-      const sortedByD = [...TEAMS].sort((a, b) => tv(a).adj_d - tv(b).adj_d);
-      const mover = SITE_DATA.kpis.mover1;
-
-      const no1 = sortedByEM[0], v1 = tv(no1);
-      const off1 = sortedByO[0], vo = tv(off1);
-      const def1 = sortedByD[0], vd = tv(def1);
-
-      document.getElementById('pulse-no1').textContent = `${no1.team} (${no1.record})`;
-      document.getElementById('pulse-no1-sub').textContent = `+${v1.adj_em.toFixed(2)} AdjEM`;
-      document.getElementById('pulse-off1').textContent = `${off1.team} (${off1.record})`;
-      document.getElementById('pulse-off1-sub').textContent = `${vo.adj_o.toFixed(1)} pts / 100 poss`;
-      document.getElementById('pulse-def1').textContent = `${def1.team} (${def1.record})`;
-      document.getElementById('pulse-def1-sub').textContent = `${vd.adj_d.toFixed(1)} pts / 100 poss`;
-      document.getElementById('pulse-mover').textContent = `${mover.team} (${mover.record})`;
-      document.getElementById('pulse-mover-sub').textContent = `${mover.vs_prior >= 0 ? '+' : ''}${mover.vs_prior.toFixed(2)} vs prior`;
-    }
-
-    function openTopCard(which) {
-      const sortedByEM = [...TEAMS].sort((a, b) => tv(b).adj_em - tv(a).adj_em);
-      const sortedByO = [...TEAMS].sort((a, b) => tv(b).adj_o - tv(a).adj_o);
-      const sortedByD = [...TEAMS].sort((a, b) => tv(a).adj_d - tv(b).adj_d);
-      if (which === 'no1') openTeamModal(sortedByEM[0].team);
-      else if (which === 'off1') openTeamModal(sortedByO[0].team);
-      else if (which === 'def1') openTeamModal(sortedByD[0].team);
-      else openTeamModal(SITE_DATA.kpis.mover1.team);
-    }
-
     function switchMainTab(tab) {
-      activeTab = tab;
       ['rankings', 'slate', 'matchup', 'model'].forEach(t => {
         const btn = document.getElementById('nav-' + t);
         const pane = document.getElementById('tab-' + t);
         if (t === tab) {
-          btn.style.backgroundColor = 'var(--hi-accent)';
-          btn.style.color = '#ffffff';
+          btn.style.borderBottom = '2px solid var(--hi-accent)';
+          btn.style.color = 'var(--hi-text)';
           pane.classList.remove('hidden');
         } else {
-          btn.style.backgroundColor = 'transparent';
+          btn.style.borderBottom = '2px solid transparent';
           btn.style.color = 'var(--hi-muted)';
           pane.classList.add('hidden');
         }
@@ -514,34 +433,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const tbody = document.getElementById('rankings-tbody');
       tbody.innerHTML = rows.map(r => {
         const v = tv(r);
-        let rkBadgeStyle = 'color: var(--hi-muted);';
-        if (v.rank <= 10) {
-          rkBadgeStyle = 'background-color: var(--hi-accent-soft); color: var(--hi-accent-text); font-weight: 800; padding: 2px 7px; border-radius: 6px;';
-        } else if (v.rank <= 25) {
-          rkBadgeStyle = 'background-color: var(--hi-surface-alt); color: var(--hi-text); font-weight: 700; padding: 2px 7px; border-radius: 6px;';
-        }
-
-        const oBadge = v.o_rk <= 15 ? 'color: var(--hi-pos); font-weight: 700;' : 'color: var(--hi-muted);';
-        const dBadge = v.d_rk <= 15 ? 'color: var(--hi-pos); font-weight: 700;' : 'color: var(--hi-muted);';
-
         return `
         <tr class="hi-row cursor-pointer" onclick="openTeamModal('${r.team.replace(/'/g, "\\'")}')">
-          <td class="py-2.5 px-4 tabular-nums"><span style="${rkBadgeStyle}">${v.rank}</span></td>
-          <td class="py-2.5 px-4 font-bold">
-            ${r.team}${r.alt ? '<span title="High-Altitude Venue (+1.55 HCA)" class="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600">⛰️ ALT</span>' : ''}
+          <td class="py-2 px-3.5 tabular-nums text-xs font-mono" style="color: var(--hi-muted);">${v.rank}</td>
+          <td class="py-2 px-3.5 font-semibold">
+            ${r.team}${r.alt ? '<span title="High-Altitude Venue (+1.55 HCA)" class="ml-1.5 text-[10px] font-mono px-1 py-0.5 rounded hi-subcard" style="color: var(--hi-muted);">ALT</span>' : ''}
           </td>
-          <td class="py-2.5 px-3 text-xs font-semibold" style="color: var(--hi-muted);">${r.conf}</td>
-          <td class="py-2.5 px-3 text-xs tabular-nums" style="color: var(--hi-muted);">${r.record}</td>
-          <td class="py-2.5 px-4 text-right font-mono font-extrabold tabular-nums" style="color: ${v.adj_em >= 0 ? 'var(--hi-pos)' : 'var(--hi-neg)'};">
+          <td class="py-2 px-3 text-xs" style="color: var(--hi-muted);">${r.conf}</td>
+          <td class="py-2 px-3 text-xs tabular-nums" style="color: var(--hi-muted);">${r.record}</td>
+          <td class="py-2 px-3.5 text-right font-mono font-semibold tabular-nums" style="color: ${v.adj_em >= 0 ? 'var(--hi-pos)' : 'var(--hi-neg)'};">
             ${v.adj_em >= 0 ? '+' : ''}${v.adj_em.toFixed(2)}
           </td>
-          <td class="py-2.5 px-4 text-right font-mono tabular-nums">
-            ${v.adj_o.toFixed(1)} <span class="text-xs ml-0.5" style="${oBadge}">#${v.o_rk}</span>
+          <td class="py-2 px-3.5 text-right font-mono tabular-nums">
+            ${v.adj_o.toFixed(1)} <span class="text-xs ml-0.5" style="color: var(--hi-muted);">${v.o_rk}</span>
           </td>
-          <td class="py-2.5 px-4 text-right font-mono tabular-nums">
-            ${v.adj_d.toFixed(1)} <span class="text-xs ml-0.5" style="${dBadge}">#${v.d_rk}</span>
+          <td class="py-2 px-3.5 text-right font-mono tabular-nums">
+            ${v.adj_d.toFixed(1)} <span class="text-xs ml-0.5" style="color: var(--hi-muted);">${v.d_rk}</span>
           </td>
-          <td class="py-2.5 px-4 text-right font-mono tabular-nums" style="color: var(--hi-muted);">${r.tempo.toFixed(1)}</td>
+          <td class="py-2 px-3.5 text-right font-mono tabular-nums" style="color: var(--hi-muted);">${r.tempo.toFixed(1)}</td>
         </tr>
       `;}).join('');
     }
@@ -554,11 +463,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       document.getElementById('modal-rk').textContent = `#${v.rank}`;
       document.getElementById('modal-name').textContent = r.team;
-      document.getElementById('modal-sub').textContent = `${r.conf} Conference · ${r.record} Record · Live T-Rank #${r.torvik_rk}`;
+      document.getElementById('modal-sub').textContent = `${r.conf} · ${r.record} · T-Rank #${r.torvik_rk}`;
       document.getElementById('modal-em').textContent = `${v.adj_em >= 0 ? '+' : ''}${v.adj_em.toFixed(2)}`;
       document.getElementById('modal-em').style.color = v.adj_em >= 0 ? 'var(--hi-pos)' : 'var(--hi-neg)';
-      document.getElementById('modal-adjo').textContent = `${v.adj_o.toFixed(1)} (#${v.o_rk})`;
-      document.getElementById('modal-adjd').textContent = `${v.adj_d.toFixed(1)} (#${v.d_rk})`;
+      document.getElementById('modal-adjo').textContent = `${v.adj_o.toFixed(1)} (${v.o_rk})`;
+      document.getElementById('modal-adjd').textContent = `${v.adj_d.toFixed(1)} (${v.d_rk})`;
       document.getElementById('modal-tempo').textContent = r.tempo.toFixed(1);
       document.getElementById('modal-ff').textContent = `eFG ${r.efg}% · ORB ${r.orb}% · Opp ORB ${r.opp_orb}% · TOV ${r.tov}%`;
 
@@ -568,15 +477,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       } else {
         logTbody.innerHTML = r.logs.map(lg => `
           <tr class="hi-row">
-            <td class="py-2 px-2 tabular-nums" style="color: var(--hi-muted);">${lg.date}</td>
-            <td class="py-2 px-2">${lg.loc}</td>
-            <td class="py-2 px-2 font-bold cursor-pointer hover:underline" onclick="openTeamModal('${lg.opp.replace(/'/g, "\\'")}')">
+            <td class="py-1.5 px-2 tabular-nums" style="color: var(--hi-muted);">${lg.date}</td>
+            <td class="py-1.5 px-2">${lg.loc}</td>
+            <td class="py-1.5 px-2 font-medium cursor-pointer hover:underline" onclick="openTeamModal('${lg.opp.replace(/'/g, "\\'")}')">
               #${lg.opp_rk} ${lg.opp}
             </td>
-            <td class="py-2 px-2 font-extrabold tabular-nums" style="color: ${lg.win ? 'var(--hi-pos)' : 'var(--hi-neg)'};">
+            <td class="py-1.5 px-2 font-semibold tabular-nums" style="color: ${lg.win ? 'var(--hi-pos)' : 'var(--hi-neg)'};">
               ${lg.win ? 'W' : 'L'} ${lg.score}
             </td>
-            <td class="py-2 px-2 text-right font-mono tabular-nums" style="color: var(--hi-muted);">${lg.ortg} / ${lg.drtg}</td>
+            <td class="py-1.5 px-2 text-right font-mono tabular-nums" style="color: var(--hi-muted);">${lg.ortg} / ${lg.drtg}</td>
           </tr>
         `).join('');
       }
@@ -600,9 +509,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       container.innerHTML = btns.map(b => {
         const isActive = b.key === activeSlateFilter;
         const style = isActive
-          ? 'background-color: var(--hi-accent); color: #ffffff;'
-          : 'background-color: var(--hi-surface-alt); color: var(--hi-muted); border: 1px solid var(--hi-border);';
-        return `<button onclick="setSlateFilter('${b.key}')" style="${style}" class="px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer">${b.label}</button>`;
+          ? 'background-color: var(--hi-text); color: var(--hi-surface);'
+          : 'background-color: var(--hi-surface); color: var(--hi-muted); border: 1px solid var(--hi-border);';
+        return `<button onclick="setSlateFilter('${b.key}')" style="${style}" class="px-3 py-1 text-xs font-medium rounded-md transition cursor-pointer">${b.label}</button>`;
       }).join('');
     }
 
@@ -624,15 +533,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       const tbody = document.getElementById('slate-tbody');
       if (games.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter. Uncheck "Featured matchups only" to see all D-I games.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter. Uncheck "Featured games only" to see all D-I games.</td></tr>`;
         return;
       }
 
       const mu = usePrior ? SITE_DATA.mu : SITE_DATA.mu_np;
       tbody.innerHTML = games.map(g => {
         const statusCell = g.is_final
-          ? `<span class="text-xs font-extrabold px-2 py-0.5 rounded" style="background-color: rgba(16, 185, 129, 0.15); color: var(--hi-pos);">FINAL: ${g.actual}</span>`
-          : `<span class="text-xs" style="color: var(--hi-muted);">${g.neutral ? 'Neutral Site' : 'Home / Away'}</span>`;
+          ? `<span class="text-xs font-semibold" style="color: var(--hi-pos);">${g.actual}</span>`
+          : `<span class="text-xs" style="color: var(--hi-muted);">${g.neutral ? 'Neutral' : 'Home/Away'}</span>`;
 
         let p1 = g.pred1, p2 = g.pred2, fav = g.fav, spr = g.spread, favProb = Math.max(g.prob1, g.prob2);
         let rk1 = g.r1, rk2 = g.r2;
@@ -652,16 +561,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         return `
           <tr onclick="openMatchupFromSlate('${g.t1.replace(/'/g, "\\'")}', '${g.t2.replace(/'/g, "\\'")}', ${g.neutral})" class="hi-row cursor-pointer">
-            <td class="py-3 px-4 text-xs font-medium whitespace-nowrap" style="color: var(--hi-muted);">${g.date_label}</td>
-            <td class="py-3 px-4">
-              <span class="font-bold">#${rk1} ${g.t1}</span>
+            <td class="py-2.5 px-4 text-xs whitespace-nowrap" style="color: var(--hi-muted);">${g.date_label}</td>
+            <td class="py-2.5 px-4">
+              <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">${rk1}</span><span class="font-medium">${g.t1}</span>
               <span class="text-xs mx-1.5" style="color: var(--hi-muted);">${g.neutral ? 'vs.' : 'at'}</span>
-              <span class="font-bold">#${rk2} ${g.t2}</span>
+              <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">${rk2}</span><span class="font-medium">${g.t2}</span>
             </td>
-            <td class="py-3 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p1.toFixed(0)}–${p2.toFixed(0)}</td>
-            <td class="py-3 px-4 text-right font-mono text-xs font-extrabold tabular-nums" style="color: var(--hi-accent);">${fav} -${spr.toFixed(1)}</td>
-            <td class="py-3 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${favProb.toFixed(0)}%</td>
-            <td class="py-3 px-4 text-right">${statusCell}</td>
+            <td class="py-2.5 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p1.toFixed(0)}–${p2.toFixed(0)}</td>
+            <td class="py-2.5 px-4 text-right font-mono text-xs font-semibold tabular-nums">${fav} -${spr.toFixed(1)}</td>
+            <td class="py-2.5 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${favProb.toFixed(0)}%</td>
+            <td class="py-2.5 px-4 text-right">${statusCell}</td>
           </tr>
         `;
       }).join('');
@@ -688,8 +597,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       ['neutral', 'home_b', 'home_a'].forEach(l => {
         const btn = document.getElementById('loc-' + l);
         if (l === loc) {
-          btn.style.backgroundColor = 'var(--hi-accent)';
-          btn.style.color = '#ffffff';
+          btn.style.backgroundColor = 'var(--hi-text)';
+          btn.style.color = 'var(--hi-surface)';
         } else {
           btn.style.backgroundColor = 'var(--hi-surface-alt)';
           btn.style.color = 'var(--hi-muted)';
@@ -725,7 +634,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       const fav = diffA >= 0 ? a.team : b.team;
       document.getElementById('sim-line-badge').textContent = `${fav} -${Math.abs(diffA).toFixed(1)}`;
-      document.getElementById('sim-total-sub').textContent = `Projected Total ${(ptsA + ptsB).toFixed(1)} · ${estPoss.toFixed(1)} poss`;
+      document.getElementById('sim-total-sub').textContent = `Total ${(ptsA + ptsB).toFixed(1)} · ${estPoss.toFixed(1)} poss`;
 
       document.getElementById('sim-bar-a').style.width = `${probA.toFixed(1)}%`;
       document.getElementById('sim-bar-b').style.width = `${probB.toFixed(1)}%`;
@@ -735,9 +644,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const baseDiff = (va.adj_em - vb.adj_em) * (estPoss / 100.0);
       const hcaPts = hcaA * (estPoss / 100.0);
       document.getElementById('sim-math-breakdown').innerHTML = `
-        <span>Neutral edge: <strong style="color: var(--hi-text);">${baseDiff >= 0 ? a.team : b.team} +${Math.abs(baseDiff).toFixed(1)} pts</strong></span>
-        <span>Court/Altitude: <strong style="color: var(--hi-text);">${Math.abs(hcaPts) < 0.05 ? 'Neutral (0.0)' : (hcaPts > 0 ? a.team + ' +' + hcaPts.toFixed(1) : b.team + ' +' + Math.abs(hcaPts).toFixed(1)) + ' pts'}</strong></span>
-        <span>Offensive Glass: <strong style="color: var(--hi-text);">${a.orb}% vs ${b.orb}%</strong></span>
+        <span>Neutral efficiency: <strong style="color: var(--hi-text);">${baseDiff >= 0 ? a.team : b.team} +${Math.abs(baseDiff).toFixed(1)}</strong></span>
+        <span>Court/Altitude: <strong style="color: var(--hi-text);">${Math.abs(hcaPts) < 0.05 ? 'Neutral' : (hcaPts > 0 ? a.team + ' +' + hcaPts.toFixed(1) : b.team + ' +' + Math.abs(hcaPts).toFixed(1))}</strong></span>
+        <span>ORB%: <strong style="color: var(--hi-text);">${a.orb}% vs ${b.orb}%</strong></span>
       `;
     }
 
@@ -773,7 +682,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       switchMainTab('rankings');
       setSimLoc('neutral');
-      updatePulseCards();
       renderRankingsTable();
       renderSlateFilterButtons();
       renderSlate();
@@ -790,4 +698,4 @@ final_html = HTML_TEMPLATE.replace("__SITE_PAYLOAD_PLACEHOLDER__", PAYLOAD_JSON)
 if ARTIFACT_DIR.exists():
     (ARTIFACT_DIR / "hodges_basketball_ratings.html").write_text(final_html)
     (ARTIFACT_DIR / "cbb_ranking_laboratory.html").write_text(final_html)
-print("Rendered standalone HodgesIndex UI (index.html):", len(final_html), "bytes")
+print("Rendered clean editorial HodgesIndex UI (index.html):", len(final_html), "bytes")
