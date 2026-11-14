@@ -1,27 +1,258 @@
 #!/usr/bin/env python3
 """
-Generates site_payload.json for the 2026-27 College Basketball Rankings & Daily Slate Hub.
+Generates site_payload.json and daily historical snapshots (history/YYYY-MM-DD.json)
+for the 2026-27 College Basketball Rankings, Daily Slate & Performance Tracker.
 Uses kenpom_engine.py as the single source of truth for all math & hyperparameters.
-Dynamically derives:
-  - Latest game date (updated_at)
-  - Dynamic preseason prior weight w_prior = max(0, 8 * (1 - G_avg / 14))
-  - 3-day upcoming & live slate starting from today (or latest completed date)
-  - Dynamic KPI summary stats (no hardcoded teams or dates!)
 """
 
 import json
 import math
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from kenpom_engine import (
     DATA_DIR,
     HIGH_ALTITUDE_TEAMS,
     PRODUCTION_CONFIG,
-    load_priors_from_team_results,
     load_season_games,
     solve_model,
 )
+
+HISTORY_DIR = DATA_DIR / "history"
+
+
+def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
+    """
+    Computes strictly out-of-sample (pre-game) rankings and game predictions for every
+    completed game date of the 2026-27 season, writes full daily snapshots to
+    history/YYYY-MM-DD.json, and returns a compact summary for site_payload.json.
+    """
+    HISTORY_DIR.mkdir(exist_ok=True)
+    std_hca = PRODUCTION_CONFIG["std_hca"]
+    alt_hca = PRODUCTION_CONFIG["alt_hca"]
+    prob_sigma = PRODUCTION_CONFIG["prob_sigma"]
+
+    all_dates = sorted({g["date"] for g in games_27})
+    days_payload = []
+
+    total_games = 0
+    total_hits = 0
+    all_errs = []
+
+    # Calibration buckets: 50-60%, 60-70%, 70-80%, 80-90%, 90-100%
+    bucket_defs = [
+        ("50–60%", 50.0, 60.0),
+        ("60–70%", 60.0, 70.0),
+        ("70–80%", 70.0, 80.0),
+        ("80–90%", 80.0, 90.0),
+        ("90%+", 90.0, 100.1),
+    ]
+    bucket_stats = {lbl: {"n": 0, "hits": 0, "prob_sum": 0.0} for lbl, _, _ in bucket_defs}
+
+    for d_str in all_dates:
+        prior_games = [g for g in games_27 if g["date"] < d_str]
+        day_games = [g for g in games_27 if g["date"] == d_str]
+        if len(day_games) < 2:
+            continue
+
+        dt_obj = datetime.strptime(d_str, "%Y-%m-%d")
+        if not prior_games:
+            # Opening day: pure preseason priors
+            mu = mu_26
+            pw = PRODUCTION_CONFIG["prior_max_weight"]
+            raw_list = []
+            for t, m in meta_27.items():
+                po, pd = priors_26.get(
+                    t,
+                    (PRODUCTION_CONFIG["new_d1_prior_off"], PRODUCTION_CONFIG["new_d1_prior_def"]),
+                )
+                s = PRODUCTION_CONFIG["prior_shrinkage"] if t in priors_26 else 1.0
+                ao = mu + s * po
+                ad = mu + s * pd
+                raw_list.append({
+                    "team": t,
+                    "conf": m["conf"],
+                    "record": "0-0",
+                    "gp": 0,
+                    "adj_o": round(ao, 2),
+                    "adj_d": round(ad, 2),
+                    "adj_em": round(ao - ad, 2),
+                    "tempo": 68.5,
+                })
+            raw_list.sort(key=lambda x: x["adj_em"], reverse=True)
+            for idx, r in enumerate(raw_list, 1):
+                r["rank"] = idx
+            tmap = {
+                r["team"]: {**r, "alt": 1 if r["team"] in HIGH_ALTITUDE_TEAMS else 0}
+                for r in raw_list
+            }
+            rankings_snapshot = raw_list
+        else:
+            avg_g = (2.0 * len(prior_games)) / max(1, len(meta_27))
+            pw = max(
+                0.0,
+                PRODUCTION_CONFIG["prior_max_weight"]
+                * (1.0 - avg_g / PRODUCTION_CONFIG["prior_fadeout_games"]),
+            )
+            res = solve_model(
+                meta_27,
+                prior_games,
+                priors_map=priors_26,
+                prior_weight=pw,
+                prior_shrinkage=PRODUCTION_CONFIG["prior_shrinkage"],
+                zero_ridge_alpha=PRODUCTION_CONFIG["zero_ridge_alpha"],
+                recency_decay=PRODUCTION_CONFIG["recency_decay"],
+                margin_cap=PRODUCTION_CONFIG["margin_cap"],
+                three_pt_luck_weight=PRODUCTION_CONFIG["three_pt_luck_weight"],
+                eb_3p_prior_att=PRODUCTION_CONFIG["eb_3p_prior_att"],
+                eb_3p_prior_mean=PRODUCTION_CONFIG["eb_3p_prior_mean"],
+                altitude_boost=PRODUCTION_CONFIG["altitude_boost"],
+                ref_date=dt_obj,
+            )
+            mu = res["mu"]
+            # Compute W-L entering this date
+            wl_prior = {t: [0, 0] for t in meta_27}
+            for pg in prior_games:
+                w_t = pg["t1"] if pg["t1_pts"] > pg["t2_pts"] else pg["t2"]
+                l_t = pg["t2"] if pg["t1_pts"] > pg["t2_pts"] else pg["t1"]
+                wl_prior[w_t][0] += 1
+                wl_prior[l_t][1] += 1
+
+            rankings_snapshot = []
+            for r in res["rankings"]:
+                t = r["team"]
+                rankings_snapshot.append({
+                    "rank": r["rank"],
+                    "team": t,
+                    "conf": r["conf"],
+                    "record": f"{wl_prior[t][0]}-{wl_prior[t][1]}",
+                    "gp": r["gp"],
+                    "adj_o": round(r["adj_o"], 2),
+                    "adj_d": round(r["adj_d"], 2),
+                    "adj_em": round(r["adj_em"], 2),
+                    "tempo": round(r["tempo"], 1),
+                })
+            tmap = {
+                r["team"]: {**r, "alt": 1 if r["team"] in HIGH_ALTITUDE_TEAMS else 0}
+                for r in rankings_snapshot
+            }
+
+        day_picks = []
+        day_hits = 0
+        day_errs = []
+
+        for g in day_games:
+            t1, t2 = g["t1"], g["t2"]
+            r1, r2 = tmap[t1], tmap[t2]
+            est_poss = 0.5 * (r1["tempo"] + r2["tempo"])
+            hca = 0.0 if g["neutral"] else (std_hca + (alt_hca if r2["alt"] else 0.0))
+
+            o1 = r1["adj_o"] + r2["adj_d"] - mu - 0.5 * hca
+            o2 = r2["adj_o"] + r1["adj_d"] - mu + 0.5 * hca
+            pred1 = round(o1 * (est_poss / 100.0), 1)
+            pred2 = round(o2 * (est_poss / 100.0), 1)
+            pred_margin2 = pred2 - pred1
+
+            z = pred_margin2 / prob_sigma
+            prob2 = round(100.0 / (1.0 + math.exp(-1.702 * z)), 1)
+            prob1 = round(100.0 - prob2, 1)
+
+            fav = t2 if pred_margin2 >= 0 else t1
+            spread = round(abs(pred_margin2), 1)
+            fav_prob = max(prob1, prob2)
+
+            p1, p2 = int(g["t1_pts"]), int(g["t2_pts"])
+            actual_winner = t2 if p2 > p1 else t1
+            actual_margin2 = float(p2 - p1)
+            hit = (fav == actual_winner)
+            err = round(abs(pred_margin2 - actual_margin2), 1)
+
+            if hit:
+                day_hits += 1
+                total_hits += 1
+            total_games += 1
+            day_errs.append(err)
+            all_errs.append(err)
+
+            for b_lbl, b_lo, b_hi in bucket_defs:
+                if b_lo <= fav_prob < b_hi:
+                    bucket_stats[b_lbl]["n"] += 1
+                    bucket_stats[b_lbl]["hits"] += (1 if hit else 0)
+                    bucket_stats[b_lbl]["prob_sum"] += fav_prob
+                    break
+
+            thrill = round(0.5 * (r1["adj_em"] + r2["adj_em"]) - 0.35 * spread, 2)
+            day_picks.append({
+                "t1": t1, "r1": r1["rank"],
+                "t2": t2, "r2": r2["rank"],
+                "neutral": g["neutral"],
+                "fav": fav, "spread": spread, "prob": fav_prob,
+                "pred1": pred1, "pred2": pred2,
+                "p1": p1, "p2": p2,
+                "winner": actual_winner,
+                "hit": hit,
+                "err": err,
+                "thrill": thrill,
+            })
+
+        day_picks.sort(key=lambda x: -x["thrill"])
+        day_mae = round(sum(day_errs) / max(1, len(day_errs)), 2)
+        day_win_pct = round(100.0 * day_hits / max(1, len(day_picks)), 1)
+        label = dt_obj.strftime("%a, %b ") + str(dt_obj.day)
+
+        # Write full 365-team snapshot + picks to history/YYYY-MM-DD.json
+        full_snapshot = {
+            "date": d_str,
+            "label": label,
+            "games_count": len(day_picks),
+            "correct": day_hits,
+            "win_pct": day_win_pct,
+            "mae": day_mae,
+            "prior_weight": round(pw, 2),
+            "picks": day_picks,
+            "rankings": rankings_snapshot,
+        }
+        (HISTORY_DIR / f"{d_str}.json").write_text(json.dumps(full_snapshot, separators=(",", ":")))
+
+        days_payload.append({
+            "date": d_str,
+            "label": label,
+            "games_count": len(day_picks),
+            "correct": day_hits,
+            "win_pct": day_win_pct,
+            "mae": day_mae,
+            "prior_weight": round(pw, 2),
+            "picks": day_picks,
+            "top40": rankings_snapshot[:40],
+        })
+
+    days_payload.reverse()  # Most recent date first (e.g. Nov 13 first)
+
+    buckets_out = []
+    for b_lbl, _, _ in bucket_defs:
+        st = bucket_stats[b_lbl]
+        n = st["n"]
+        buckets_out.append({
+            "bucket": b_lbl,
+            "games": n,
+            "correct": st["hits"],
+            "expected_pct": round(st["prob_sum"] / n, 1) if n > 0 else 0.0,
+            "actual_pct": round(100.0 * st["hits"] / n, 1) if n > 0 else 0.0,
+        })
+
+    history_summary = {
+        "total_games": total_games,
+        "correct": total_hits,
+        "win_pct": round(100.0 * total_hits / max(1, total_games), 1),
+        "mae": round(sum(all_errs) / max(1, len(all_errs)), 2),
+        "buckets": buckets_out,
+        "days": days_payload,
+    }
+    (HISTORY_DIR / "performance_history.json").write_text(
+        json.dumps(history_summary, separators=(",", ":"))
+    )
+    return history_summary
 
 
 def build_site_payload():
@@ -164,17 +395,14 @@ def build_site_payload():
             "logs": list(reversed(team_logs[t])),  # Most recent game first
         })
 
-    # 3. Dynamic 3-Day Slate starting from US/Eastern today (prevents UTC evening rollover)
-    from zoneinfo import ZoneInfo
+    # 3. Dynamic 3-Day Slate starting from US/Eastern today
     eastern_today = datetime.now(ZoneInfo("America/New_York")).date()
-    latest_dt = max((g["dt"] for g in games_27), default=datetime.now())
     today_dt = eastern_today
     slate_dates_meta = []
     target_dates = {}
     date_order = {}
     for offset in range(3):
         d = today_dt + timedelta(days=offset)
-        # Format without leading zeros to match Torvik's M/D/YY (e.g. 11/12/26)
         key = f"{d.month}/{d.day}/{str(d.year)[-2:]}"
         if offset == 0:
             lbl = f"Today ({d.strftime('%b')} {d.day})"
@@ -242,7 +470,30 @@ def build_site_payload():
     # Sort chronologically by date first, then by matchup quality within each day
     slate_games.sort(key=lambda x: (x["date_idx"], -x["thrill"]))
 
-    # Dynamic Top KPI Summary
+    # 4. Build Walk-Forward Historical Rankings & Daily Picks Performance
+    history_data = build_walk_forward_history(meta_27, games_27, priors_26, mu_26)
+
+    # Also archive today's pre-game rankings & today's slate predictions to history/YYYY-MM-DD_pregame.json
+    today_iso = eastern_today.strftime("%Y-%m-%d")
+    today_key = f"{eastern_today.month}/{eastern_today.day}/{str(eastern_today.year)[-2:]}"
+    today_pregame = {
+        "date": today_iso,
+        "prior_weight": round(pw, 2),
+        "slate_picks": [sg for sg in slate_games if sg["date"] == today_key],
+        "rankings": [
+            {
+                "rank": r["rank"], "team": r["team"], "conf": r["conf"],
+                "record": r["record"], "gp": r["gp"],
+                "adj_em": r["adj_em"], "adj_o": r["adj_o"], "adj_d": r["adj_d"],
+                "tempo": r["tempo"],
+            }
+            for r in teams_list
+        ],
+    }
+    (HISTORY_DIR / f"{today_iso}_pregame.json").write_text(
+        json.dumps(today_pregame, separators=(",", ":"))
+    )
+
     top1 = teams_list[0]
     off1 = max(teams_list, key=lambda x: x["adj_o"])
     def1 = min(teams_list, key=lambda x: x["adj_d"])
@@ -271,6 +522,7 @@ def build_site_payload():
         "slate_dates": slate_dates_meta,
         "teams": teams_list,
         "slate": slate_games,
+        "history": history_data,
     }
 
 
@@ -278,4 +530,8 @@ if __name__ == "__main__":
     payload = build_site_payload()
     s = json.dumps(payload, separators=(",", ":"))
     (DATA_DIR / "site_payload.json").write_text(s)
-    print(f"Built site_payload.json: {len(s):,} bytes | Updated: {payload['updated_at']} | Slate games: {len(payload['slate'])}")
+    h = payload["history"]
+    print(
+        f"Built site_payload.json: {len(s):,} bytes | Updated: {payload['updated_at']} | "
+        f"Slate games: {len(payload['slate'])} | History: {h['correct']}/{h['total_games']} ({h['win_pct']}%, MAE {h['mae']})"
+    )

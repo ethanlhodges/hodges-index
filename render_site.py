@@ -4,6 +4,7 @@ Renders HodgesIndex (index.html, generated_site.html, and artifact copies)
 with a clean, authentic sports-analytics design:
 - Solid standalone Light & Dark themes (opaque modals & sticky headers on GitHub Pages)
 - Zero emojis, zero AI-template cards, crisp editorial typography & tabular numbers
+- Historical Rankings & Daily Pick Performance Tracker tab
 """
 
 from pathlib import Path
@@ -108,17 +109,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <p class="text-xs mt-1" style="color: var(--hi-muted);">
           Updated <span id="hdr-date" class="font-medium" style="color: var(--hi-text);">—</span> ·
           <span id="hdr-games">—</span> games ·
+          Season Picks <span id="hdr-record" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
           Prior weight <span id="hdr-prior" class="font-mono tabular-nums" style="color: var(--hi-text);">—</span>
         </p>
       </div>
 
-      <div class="flex items-center gap-5 text-sm">
-        <nav class="flex items-center gap-5">
+      <div class="flex flex-wrap items-center gap-5 text-sm">
+        <nav class="flex flex-wrap items-center gap-5">
           <button onclick="switchMainTab('rankings')" id="nav-rankings" class="pb-1 font-semibold transition cursor-pointer">
             Rankings
           </button>
           <button onclick="switchMainTab('slate')" id="nav-slate" class="pb-1 font-medium transition cursor-pointer">
             Games
+          </button>
+          <button onclick="switchMainTab('history')" id="nav-history" class="pb-1 font-medium transition cursor-pointer">
+            Performance
           </button>
           <button onclick="switchMainTab('matchup')" id="nav-matchup" class="pb-1 font-medium transition cursor-pointer">
             Predictor
@@ -216,7 +221,92 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
     </section>
 
-    <!-- ==================== TAB 3: HEAD-TO-HEAD PREDICTOR ==================== -->
+    <!-- ==================== TAB 3: HISTORICAL PERFORMANCE & ARCHIVE ==================== -->
+    <section id="tab-history" class="hidden space-y-4">
+      <!-- Season Summary & Calibration Strip -->
+      <div class="hi-card rounded-lg p-4 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b" style="border-color: var(--hi-border);">
+          <div>
+            <h2 class="text-sm font-bold">2026–27 Walk-Forward Model Performance</h2>
+            <p class="text-xs" style="color: var(--hi-muted);">Strictly out-of-sample pre-game picks evaluated using only games completed prior to each date.</p>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono tabular-nums">
+            <span>Season Record: <strong id="hist-season-rec" style="color: var(--hi-pos);">—</strong></span>
+            <span>Spread MAE: <strong id="hist-season-mae" style="color: var(--hi-text);">—</strong></span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs" id="hist-buckets-grid"></div>
+      </div>
+
+      <!-- Date Selector & Sub-View Controls -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="text-xs font-medium" style="color: var(--hi-muted);">Date:</label>
+          <select id="hist-date-select" onchange="onSelectHistoryDate()" class="hi-input px-3 py-1.5 text-xs font-medium rounded-md cursor-pointer"></select>
+          <span id="hist-day-summary" class="text-xs font-mono tabular-nums ml-1" style="color: var(--hi-muted);"></span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-1" id="hist-filter-group">
+            <button onclick="setHistOutcomeFilter('ALL')" id="hfilt-ALL" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">All Picks</button>
+            <button onclick="setHistOutcomeFilter('MISS')" id="hfilt-MISS" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Misses / Upsets</button>
+            <button onclick="setHistOutcomeFilter('HIT')" id="hfilt-HIT" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Hits</button>
+          </div>
+          <span style="color: var(--hi-border);">|</span>
+          <button onclick="toggleHistMode()" id="hist-mode-btn" class="px-2.5 py-1 text-xs font-medium rounded hi-subcard hover:opacity-80 cursor-pointer">
+            View Pre-Game Top 40 Rankings
+          </button>
+        </div>
+      </div>
+
+      <!-- Daily Picks Table -->
+      <div id="hist-picks-card" class="hi-card rounded-lg overflow-hidden">
+        <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+          <table class="w-full text-left border-collapse">
+            <thead class="sticky top-0 z-10 text-xs" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
+              <tr>
+                <th class="py-2.5 px-3.5 font-semibold w-16">Result</th>
+                <th class="py-2.5 px-3.5 font-semibold">Matchup (Pre-Game Rk)</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right">Pre-Game Pick</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right">Win Prob</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right">Proj Score</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right">Actual Score</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right">Spread Err</th>
+              </tr>
+            </thead>
+            <tbody id="hist-picks-tbody" class="text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Historical Top 40 Rankings Snapshot Table -->
+      <div id="hist-ranks-card" class="hidden hi-card rounded-lg overflow-hidden">
+        <div class="px-4 py-2.5 text-xs border-b flex items-center justify-between" style="background-color: var(--hi-surface-alt); border-color: var(--hi-border); color: var(--hi-muted);">
+          <span id="hist-ranks-title" class="font-semibold" style="color: var(--hi-text);">Pre-Game Top 40 Rankings Snapshot</span>
+          <span>Full 365-team daily files archived in <code class="font-mono">history/YYYY-MM-DD.json</code></span>
+        </div>
+        <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+          <table class="w-full text-left border-collapse">
+            <thead class="sticky top-0 z-10 text-xs" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
+              <tr>
+                <th class="py-2 px-3.5 font-semibold w-12">Rk</th>
+                <th class="py-2 px-3.5 font-semibold">Team</th>
+                <th class="py-2 px-3 font-semibold">Conf</th>
+                <th class="py-2 px-3 font-semibold">Entering W–L</th>
+                <th class="py-2 px-3.5 font-semibold text-right">AdjEM</th>
+                <th class="py-2 px-3.5 font-semibold text-right">AdjO</th>
+                <th class="py-2 px-3.5 font-semibold text-right">AdjD</th>
+                <th class="py-2 px-3.5 font-semibold text-right">AdjT</th>
+              </tr>
+            </thead>
+            <tbody id="hist-ranks-tbody" class="text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: HEAD-TO-HEAD PREDICTOR ==================== -->
     <section id="tab-matchup" class="hidden max-w-2xl mx-auto pt-2">
       <div class="hi-card rounded-lg p-6 space-y-5">
         <div class="flex items-center justify-between border-b pb-3" style="border-color: var(--hi-border);">
@@ -277,7 +367,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
     </section>
 
-    <!-- ==================== TAB 4: METHODOLOGY ==================== -->
+    <!-- ==================== TAB 5: METHODOLOGY ==================== -->
     <section id="tab-model" class="hidden max-w-3xl mx-auto">
       <div class="hi-card rounded-lg p-6 md:p-8 space-y-4 text-sm leading-relaxed">
         <h2 class="text-base font-bold">Methodology</h2>
@@ -290,6 +380,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <li><strong style="color: var(--hi-text);">Garbage-Time Cap & Recency:</strong> Single-game margins beyond 35 points per 100 possessions receive diminishing returns (25% slope), paired with a daily recency weight (<code class="text-xs font-mono">0.9975/day</code>).</li>
           <li><strong style="color: var(--hi-text);">Fading Preseason Priors:</strong> Early-season ratings blend a 0.90x prior from last season that decays linearly to zero by Game 14 in January. You can uncheck <em>Include prior-season weighting</em> at any time to view pure in-season ratings.</li>
           <li><strong style="color: var(--hi-text);">Altitude Home Court:</strong> In addition to standard home-court advantage (+4.0 pts/100 possessions), high-elevation venues receive a learned +1.55 pts/100 adjustment.</li>
+          <li><strong style="color: var(--hi-text);">Historical Snapshots & Walk-Forward Audit:</strong> Every completed game day's pre-game rankings and picks are archived in <code class="text-xs font-mono">history/YYYY-MM-DD.json</code> and audited in the Performance tab.</li>
         </ul>
       </div>
     </section>
@@ -356,6 +447,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const TEAMS = SITE_DATA.teams;
     const SLATE = SITE_DATA.slate;
     const CFG = SITE_DATA.config;
+    const HIST = SITE_DATA.history || { total_games: 0, correct: 0, win_pct: 0, mae: 0, buckets: [], days: [] };
     const TEAM_MAP = {};
     TEAMS.forEach(t => { TEAM_MAP[t.team] = t; });
 
@@ -363,6 +455,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     let activeSlateFilter = 'ALL';
     let simLoc = 'neutral';
     let usePrior = true;
+    let histOutcomeFilter = 'ALL';
+    let histViewRanks = false;
 
     function toggleTheme() {
       const root = document.documentElement;
@@ -394,7 +488,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     function switchMainTab(tab) {
-      ['rankings', 'slate', 'matchup', 'model'].forEach(t => {
+      ['rankings', 'slate', 'history', 'matchup', 'model'].forEach(t => {
         const btn = document.getElementById('nav-' + t);
         const pane = document.getElementById('tab-' + t);
         if (t === tab) {
@@ -583,6 +677,138 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       switchMainTab('matchup');
     }
 
+    // ==================== HISTORICAL PERFORMANCE FUNCTIONS ====================
+    function initHistoryTab() {
+      if (!HIST.days || HIST.days.length === 0) return;
+      const losses = HIST.total_games - HIST.correct;
+      const recStr = `${HIST.correct}–${losses} (${HIST.win_pct.toFixed(1)}%)`;
+      document.getElementById('hdr-record').textContent = recStr;
+      document.getElementById('hist-season-rec').textContent = recStr;
+      document.getElementById('hist-season-mae').textContent = `${HIST.mae.toFixed(2)} pts`;
+
+      const bGrid = document.getElementById('hist-buckets-grid');
+      bGrid.innerHTML = HIST.buckets.map(b => `
+        <div class="hi-subcard rounded p-2.5">
+          <div class="flex items-center justify-between font-mono text-[11px]" style="color: var(--hi-muted);">
+            <span>Prob ${b.bucket}</span>
+            <span>${b.games}g</span>
+          </div>
+          <div class="font-mono font-bold text-sm mt-1 tabular-nums">${b.actual_pct.toFixed(1)}% won</div>
+          <div class="text-[11px] font-mono tabular-nums" style="color: var(--hi-muted);">Exp ${b.expected_pct.toFixed(1)}% · ${b.correct}/${b.games}</div>
+        </div>
+      `).join('');
+
+      const sel = document.getElementById('hist-date-select');
+      sel.innerHTML = HIST.days.map((d, idx) => {
+        const l = d.games_count - d.correct;
+        return `<option value="${idx}">${d.label} (${d.correct}–${l} · ${d.win_pct.toFixed(1)}%)</option>`;
+      }).join('');
+      sel.value = "0";
+
+      setHistOutcomeFilter('ALL');
+    }
+
+    function setHistOutcomeFilter(filt) {
+      histOutcomeFilter = filt;
+      ['ALL', 'MISS', 'HIT'].forEach(k => {
+        const btn = document.getElementById('hfilt-' + k);
+        if (k === filt) {
+          btn.style.backgroundColor = 'var(--hi-text)';
+          btn.style.color = 'var(--hi-surface)';
+        } else {
+          btn.style.backgroundColor = 'var(--hi-surface)';
+          btn.style.color = 'var(--hi-muted)';
+          btn.style.border = '1px solid var(--hi-border)';
+        }
+      });
+      renderHistoryDay();
+    }
+
+    function toggleHistMode() {
+      histViewRanks = !histViewRanks;
+      const btn = document.getElementById('hist-mode-btn');
+      const picksCard = document.getElementById('hist-picks-card');
+      const ranksCard = document.getElementById('hist-ranks-card');
+      const filtGroup = document.getElementById('hist-filter-group');
+      if (histViewRanks) {
+        btn.textContent = 'View Daily Picks & Results';
+        picksCard.classList.add('hidden');
+        ranksCard.classList.remove('hidden');
+        filtGroup.classList.add('hidden');
+      } else {
+        btn.textContent = 'View Pre-Game Top 40 Rankings';
+        ranksCard.classList.add('hidden');
+        picksCard.classList.remove('hidden');
+        filtGroup.classList.remove('hidden');
+      }
+      renderHistoryDay();
+    }
+
+    function onSelectHistoryDate() {
+      renderHistoryDay();
+    }
+
+    function renderHistoryDay() {
+      if (!HIST.days || HIST.days.length === 0) return;
+      const idx = parseInt(document.getElementById('hist-date-select').value || '0', 10);
+      const day = HIST.days[idx] || HIST.days[0];
+      const losses = day.games_count - day.correct;
+      document.getElementById('hist-day-summary').textContent =
+        `${day.correct}–${losses} straight-up (${day.win_pct.toFixed(1)}%) · Spread MAE ${day.mae.toFixed(2)} pts · Prior weight ${day.prior_weight}`;
+
+      // Render Picks Table
+      let picks = day.picks || [];
+      if (histOutcomeFilter === 'MISS') picks = picks.filter(p => !p.hit);
+      else if (histOutcomeFilter === 'HIT') picks = picks.filter(p => p.hit);
+
+      const pTbody = document.getElementById('hist-picks-tbody');
+      if (picks.length === 0) {
+        pTbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter on ${day.label}.</td></tr>`;
+      } else {
+        pTbody.innerHTML = picks.map(p => {
+          const badgeStyle = p.hit
+            ? 'color: var(--hi-pos); background-color: var(--hi-surface-alt);'
+            : 'color: var(--hi-neg); background-color: var(--hi-surface-alt);';
+          const actMargin = Math.abs(p.p2 - p.p1);
+          return `
+            <tr class="hi-row">
+              <td class="py-2 px-3.5">
+                <span class="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded" style="${badgeStyle}">${p.hit ? 'HIT' : 'MISS'}</span>
+              </td>
+              <td class="py-2 px-3.5">
+                <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${p.r1}</span><span class="font-medium">${p.t1}</span>
+                <span class="text-xs mx-1.5" style="color: var(--hi-muted);">${p.neutral ? 'vs.' : 'at'}</span>
+                <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${p.r2}</span><span class="font-medium">${p.t2}</span>
+              </td>
+              <td class="py-2 px-3.5 text-right font-mono text-xs font-semibold tabular-nums">${p.fav} -${p.spread.toFixed(1)}</td>
+              <td class="py-2 px-3.5 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.prob.toFixed(1)}%</td>
+              <td class="py-2 px-3.5 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.pred1.toFixed(0)}–${p.pred2.toFixed(0)}</td>
+              <td class="py-2 px-3.5 text-right font-mono text-xs font-semibold tabular-nums">${p.winner} ${Math.max(p.p1, p.p2)}–${Math.min(p.p1, p.p2)}</td>
+              <td class="py-2 px-3.5 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.err.toFixed(1)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Render Pre-Game Top 40 Rankings Snapshot
+      document.getElementById('hist-ranks-title').textContent = `Pre-Game Top 40 Rankings Entering ${day.label} (${day.date})`;
+      const rTbody = document.getElementById('hist-ranks-tbody');
+      rTbody.innerHTML = (day.top40 || []).map(r => `
+        <tr class="hi-row">
+          <td class="py-2 px-3.5 font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${r.rank}</td>
+          <td class="py-2 px-3.5 font-semibold">${r.team}</td>
+          <td class="py-2 px-3 text-xs" style="color: var(--hi-muted);">${r.conf}</td>
+          <td class="py-2 px-3 text-xs font-mono tabular-nums" style="color: var(--hi-muted);">${r.record}</td>
+          <td class="py-2 px-3.5 text-right font-mono font-semibold tabular-nums" style="color: ${r.adj_em >= 0 ? 'var(--hi-pos)' : 'var(--hi-neg)'};">
+            ${r.adj_em >= 0 ? '+' : ''}${r.adj_em.toFixed(2)}
+          </td>
+          <td class="py-2 px-3.5 text-right font-mono tabular-nums">${r.adj_o.toFixed(1)}</td>
+          <td class="py-2 px-3.5 text-right font-mono tabular-nums">${r.adj_d.toFixed(1)}</td>
+          <td class="py-2 px-3.5 text-right font-mono tabular-nums" style="color: var(--hi-muted);">${r.tempo.toFixed(1)}</td>
+        </tr>
+      `).join('');
+    }
+
     function swapSimTeams() {
       const selA = document.getElementById('sim-a');
       const selB = document.getElementById('sim-b');
@@ -680,6 +906,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       simA.value = TEAMS[0].team;
       simB.value = TEAMS[1].team;
 
+      initHistoryTab();
       switchMainTab('rankings');
       setSimLoc('neutral');
       renderRankingsTable();

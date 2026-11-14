@@ -295,7 +295,12 @@ def solve_model(
                 np.add.at(A, (alt_idx, n_teams + ai1), wa)
 
     # Regularization + Bayesian Preseason Prior Target
-    tot_reg = zero_ridge_alpha + (prior_weight if priors_map else 0.0)
+    # Avoid double-shrinking toward 0 when prior_weight is already anchoring the system
+    if priors_map and prior_weight > 0.0:
+        eff_zero_alpha = max(0.25, zero_ridge_alpha - prior_weight)
+        tot_reg = eff_zero_alpha + prior_weight
+    else:
+        tot_reg = zero_ridge_alpha
     idx_teams = np.arange(n_teams)
     A[idx_teams, idx_teams] += tot_reg
     A[n_teams + idx_teams, n_teams + idx_teams] += tot_reg
