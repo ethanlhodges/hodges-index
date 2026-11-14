@@ -32,14 +32,14 @@ HIGH_ALTITUDE_TEAMS = {
 PRODUCTION_CONFIG = {
     "zero_ridge_alpha": 1.5,
     "recency_decay": 0.9975,
-    "margin_cap": 35.0,
+    "margin_cap": 55.0,
     "three_pt_luck_weight": 0.15,
     "eb_3p_prior_att": 150.0,
     "eb_3p_prior_mean": 0.340,
     "altitude_boost": True,
     "prior_max_weight": 7.5,
     "prior_fadeout_games": 14.0,
-    "prior_shrinkage": 0.90,
+    "prior_shrinkage": 0.95,
     "new_d1_prior_off": -7.5,   # -15.0 AdjEM default for newly transitioned D-I teams
     "new_d1_prior_def": 7.5,
     "hca_prior_per_side": 2.0,  # +4.0 pts/100 poss total HCA prior

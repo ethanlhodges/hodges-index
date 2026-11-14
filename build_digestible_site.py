@@ -15,6 +15,7 @@ from kenpom_engine import (
     DATA_DIR,
     HIGH_ALTITUDE_TEAMS,
     PRODUCTION_CONFIG,
+    load_priors_from_team_results,
     load_season_games,
     solve_model,
 )
@@ -256,24 +257,9 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
 
 
 def build_site_payload():
-    # 1. Solve 2025-26 Final Ratings for Preseason Priors
-    meta_26, games_26 = load_season_games(2026)
-    base_26 = solve_model(
-        meta_26,
-        games_26,
-        zero_ridge_alpha=PRODUCTION_CONFIG["zero_ridge_alpha"],
-        recency_decay=PRODUCTION_CONFIG["recency_decay"],
-        margin_cap=PRODUCTION_CONFIG["margin_cap"],
-        three_pt_luck_weight=PRODUCTION_CONFIG["three_pt_luck_weight"],
-        eb_3p_prior_att=PRODUCTION_CONFIG["eb_3p_prior_att"],
-        eb_3p_prior_mean=PRODUCTION_CONFIG["eb_3p_prior_mean"],
-        altitude_boost=PRODUCTION_CONFIG["altitude_boost"],
-    )
-    mu_26 = base_26["mu"]
-    priors_26 = {
-        r["team"]: (r["adj_o"] - mu_26, r["adj_d"] - mu_26)
-        for r in base_26["rankings"]
-    }
+    # 1. Load Un-Shrunk 2025-26 Final Efficiency Ratings for Preseason Priors
+    mu_26 = 106.5
+    priors_26 = load_priors_from_team_results(2026)
 
     # 2. Load & Solve Live 2026-27 Season
     meta_27, games_27 = load_season_games(2027)
