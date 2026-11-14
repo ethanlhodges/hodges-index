@@ -43,6 +43,9 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
     total_ats_w = 0
     total_ats_l = 0
     total_ats_p = 0
+    total_val_w = 0
+    total_val_l = 0
+    total_val_p = 0
     all_errs = []
 
     # Calibration buckets: 50-60%, 60-70%, 70-80%, 80-90%, 90-100%
@@ -147,6 +150,9 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
         day_ats_w = 0
         day_ats_l = 0
         day_ats_p = 0
+        day_val_w = 0
+        day_val_l = 0
+        day_val_p = 0
         day_errs = []
 
         for g in day_games:
@@ -187,6 +193,9 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
             vegas_str = ""
             ats_pick = ""
             ats_res = ""
+            is_value = False
+            val_edge = 0.0
+            val_type = ""
             if v_key in vegas_map:
                 v_info = vegas_map[v_key]
                 v_fav = v_info["fav"]
@@ -195,6 +204,7 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
                 vegas_str = f"{v_fav} -{v_spr:.1f}" if v_spr > 0 else "PK"
                 # Expected Team 2 margin implied by Vegas line
                 v_m2 = v_spr if v_fav == t2 else -v_spr
+                val_edge = round(abs(pred_margin2 - v_m2), 1)
                 if abs(pred_margin2 - v_m2) >= 0.05:
                     # Does model like Team 2 more than Vegas does?
                     pick_t2 = pred_margin2 > v_m2
@@ -203,18 +213,34 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
                     else:
                         ats_pick = f"{t1} {'-' + str(v_spr) if v_fav == t1 else '+' + str(v_spr)}"
 
+                    # Identify high-value mispriced spreads (Underdog Flips or Competitive Dog Edges)
+                    backing_dog = (pick_t2 and v_fav == t1) or ((not pick_t2) and v_fav == t2)
+                    is_flip = (fav != v_fav and 1.5 <= val_edge <= 7.5)
+                    is_dog_val = (backing_dog and 2.5 <= val_edge <= 7.0 and v_spr <= 12.0)
+                    is_value = bool(is_flip or is_dog_val)
+                    val_type = "Flip" if is_flip else ("Dog Edge" if is_dog_val else "")
+
                     if actual_margin2 == v_m2:
                         ats_res = "P"
                         day_ats_p += 1
                         total_ats_p += 1
+                        if is_value:
+                            day_val_p += 1
+                            total_val_p += 1
                     elif (pick_t2 and actual_margin2 > v_m2) or ((not pick_t2) and actual_margin2 < v_m2):
                         ats_res = "W"
                         day_ats_w += 1
                         total_ats_w += 1
+                        if is_value:
+                            day_val_w += 1
+                            total_val_w += 1
                     else:
                         ats_res = "L"
                         day_ats_l += 1
                         total_ats_l += 1
+                        if is_value:
+                            day_val_l += 1
+                            total_val_l += 1
 
             for b_lbl, b_lo, b_hi in bucket_defs:
                 if b_lo <= fav_prob < b_hi:
@@ -237,6 +263,9 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
                 "vegas": vegas_str,
                 "ats_pick": ats_pick,
                 "ats_res": ats_res,
+                "is_value": is_value,
+                "val_edge": val_edge,
+                "val_type": val_type,
                 "thrill": thrill,
             })
 
@@ -244,6 +273,7 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
         day_mae = round(sum(day_errs) / max(1, len(day_errs)), 2)
         day_win_pct = round(100.0 * day_hits / max(1, len(day_picks)), 1)
         day_ats_pct = round(100.0 * day_ats_w / max(1, day_ats_w + day_ats_l), 1)
+        day_val_pct = round(100.0 * day_val_w / max(1, day_val_w + day_val_l), 1)
         label = dt_obj.strftime("%a, %b ") + str(dt_obj.day)
 
         full_snapshot = {
@@ -256,6 +286,10 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
             "ats_l": day_ats_l,
             "ats_p": day_ats_p,
             "ats_pct": day_ats_pct,
+            "val_w": day_val_w,
+            "val_l": day_val_l,
+            "val_p": day_val_p,
+            "val_pct": day_val_pct,
             "mae": day_mae,
             "prior_weight": round(pw, 2),
             "picks": day_picks,
@@ -273,6 +307,10 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
             "ats_l": day_ats_l,
             "ats_p": day_ats_p,
             "ats_pct": day_ats_pct,
+            "val_w": day_val_w,
+            "val_l": day_val_l,
+            "val_p": day_val_p,
+            "val_pct": day_val_pct,
             "mae": day_mae,
             "prior_weight": round(pw, 2),
             "picks": day_picks,
@@ -301,6 +339,10 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
         "ats_l": total_ats_l,
         "ats_p": total_ats_p,
         "ats_pct": round(100.0 * total_ats_w / max(1, total_ats_w + total_ats_l), 1),
+        "val_w": total_val_w,
+        "val_l": total_val_l,
+        "val_p": total_val_p,
+        "val_pct": round(100.0 * total_val_w / max(1, total_val_w + total_val_l), 1),
         "mae": round(sum(all_errs) / max(1, len(all_errs)), 2),
         "buckets": buckets_out,
         "days": days_payload,
@@ -497,7 +539,26 @@ def build_site_payload():
 
         d_iso = datetime.strptime(d_str, "%m/%d/%y").strftime("%Y-%m-%d")
         v_info = vegas_map.get(f"{d_iso}|{t1}|{t2}")
-        vegas_str = f"{v_info['fav']} -{v_info['spread']:.1f}" if v_info else ""
+        vegas_str = ""
+        is_value = False
+        val_pick = ""
+        val_edge = 0.0
+        val_type = ""
+        if v_info:
+            v_fav = v_info["fav"]
+            v_spr = float(v_info["spread"])
+            v_dog = t1 if v_fav == t2 else t2
+            vegas_str = f"{v_fav} -{v_spr:.1f}" if v_spr > 0 else "PK"
+            v_m2 = v_spr if v_fav == t2 else -v_spr
+            val_edge = round(abs(margin2 - v_m2), 1)
+            pick_t2 = margin2 > v_m2
+            backing_dog = (pick_t2 and v_fav == t1) or ((not pick_t2) and v_fav == t2)
+            is_flip = (fav_team != v_fav and 1.5 <= val_edge <= 7.5)
+            is_dog_val = (backing_dog and 2.5 <= val_edge <= 7.0 and v_spr <= 12.0)
+            is_value = bool(is_flip or is_dog_val)
+            if is_value:
+                val_pick = f"{v_dog} +{v_spr:.1f}"
+                val_type = "Flip" if is_flip else "Dog Edge"
 
         slate_games.append({
             "date": d_str,
@@ -510,6 +571,10 @@ def build_site_payload():
             "prob1": prob1, "prob2": prob2,
             "fav": fav_team, "spread": spread_val,
             "vegas": vegas_str,
+            "is_value": is_value,
+            "val_pick": val_pick,
+            "val_edge": val_edge,
+            "val_type": val_type,
             "torvik_line": str(g[4]),
             "is_final": is_final,
             "actual": str(g[24]) if is_final else "",

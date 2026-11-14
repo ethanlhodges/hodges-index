@@ -111,6 +111,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <span id="hdr-games">—</span> games ·
           SU <span id="hdr-record" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
           ATS <span id="hdr-ats" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
+          Value Picks <span id="hdr-val" class="font-mono font-semibold tabular-nums" style="color: var(--hi-pos);">—</span> ·
           Prior weight <span id="hdr-prior" class="font-mono tabular-nums" style="color: var(--hi-text);">—</span>
         </p>
       </div>
@@ -197,10 +198,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <section id="tab-slate" class="hidden space-y-3">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div id="slate-filter-btns" class="flex flex-wrap items-center gap-1.5"></div>
-        <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--hi-muted);">
-          <input id="slate-featured-only" type="checkbox" checked onchange="renderSlate()" class="rounded cursor-pointer" style="accent-color: var(--hi-accent);" />
-          <span>Featured games only (Top 60)</span>
-        </label>
+        <div class="flex flex-wrap items-center gap-4">
+          <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--hi-muted);">
+            <input id="slate-value-only" type="checkbox" onchange="renderSlate()" class="rounded cursor-pointer" style="accent-color: var(--hi-accent);" />
+            <span class="font-medium" style="color: var(--hi-text);">Value Picks only (Mispriced Spreads)</span>
+          </label>
+          <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--hi-muted);">
+            <input id="slate-featured-only" type="checkbox" checked onchange="renderSlate()" class="rounded cursor-pointer" style="accent-color: var(--hi-accent);" />
+            <span>Featured games only (Top 60)</span>
+          </label>
+        </div>
       </div>
 
       <div class="hi-card rounded-lg overflow-hidden">
@@ -208,13 +215,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <table class="w-full text-left border-collapse">
             <thead class="text-xs" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
               <tr>
-                <th class="py-2.5 px-4 font-semibold">Date</th>
-                <th class="py-2.5 px-4 font-semibold">Matchup</th>
-                <th class="py-2.5 px-4 font-semibold text-right">Projection</th>
-                <th class="py-2.5 px-4 font-semibold text-right">Model Line</th>
-                <th class="py-2.5 px-4 font-semibold text-right">Vegas Line</th>
-                <th class="py-2.5 px-4 font-semibold text-right">Win Prob</th>
-                <th class="py-2.5 px-4 font-semibold text-right">Status</th>
+                <th class="py-2.5 px-3.5 font-semibold">Date</th>
+                <th class="py-2.5 px-3.5 font-semibold">Matchup</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Projection</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Model Line</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Vegas Line</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right">Value Bet (Edge)</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Win Prob</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right">Status</th>
               </tr>
             </thead>
             <tbody id="slate-tbody" class="text-sm"></tbody>
@@ -230,11 +238,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b" style="border-color: var(--hi-border);">
           <div>
             <h2 class="text-sm font-bold">2026–27 Walk-Forward Model Performance</h2>
-            <p class="text-xs" style="color: var(--hi-muted);">Strictly out-of-sample pre-game picks evaluated Straight-Up (SU) and Against the Vegas Spread (ATS).</p>
+            <p class="text-xs" style="color: var(--hi-muted);">Strictly out-of-sample pre-game picks evaluated Straight-Up (SU), Against the Vegas Spread (ATS), and on Mispriced Value Spreads.</p>
           </div>
           <div class="flex flex-wrap items-center gap-4 text-xs font-mono tabular-nums">
             <span>Straight-Up: <strong id="hist-season-rec" style="color: var(--hi-pos);">—</strong></span>
-            <span>Vegas ATS: <strong id="hist-season-ats" style="color: var(--hi-text);">—</strong></span>
+            <span>All ATS: <strong id="hist-season-ats" style="color: var(--hi-text);">—</strong></span>
+            <span>Value Picks: <strong id="hist-season-val" style="color: var(--hi-pos);">—</strong></span>
             <span>Spread MAE: <strong id="hist-season-mae" style="color: var(--hi-text);">—</strong></span>
           </div>
         </div>
@@ -253,6 +262,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="flex flex-wrap items-center gap-2">
           <div class="flex flex-wrap items-center gap-1" id="hist-filter-group">
             <button onclick="setHistOutcomeFilter('ALL')" id="hfilt-ALL" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">All</button>
+            <button onclick="setHistOutcomeFilter('VAL')" id="hfilt-VAL" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Value Picks</button>
             <button onclick="setHistOutcomeFilter('ATS_W')" id="hfilt-ATS_W" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">ATS Wins</button>
             <button onclick="setHistOutcomeFilter('ATS_L')" id="hfilt-ATS_L" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">ATS Losses</button>
             <button onclick="setHistOutcomeFilter('MISS')" id="hfilt-MISS" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">SU Upsets</button>
@@ -384,7 +394,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <li><strong style="color: var(--hi-text);">Expectation-Anchored Garbage-Time Cap & Recency:</strong> In competitive matchups, single-game margins beyond 26 points per 100 possessions (~18 actual points) receive diminishing returns (25% slope). In heavy buy-game mismatches where the expected spread already exceeds 18 points, the cap anchors at the expected margin so favorites aren't penalized for winning by their expected spread while still discounting garbage-time run-ups beyond expectation by 75%. Games are weighted by recency (<code class="text-xs font-mono">0.9975/day</code>).</li>
           <li><strong style="color: var(--hi-text);">Fading Preseason Priors:</strong> Early-season ratings blend a 0.95x prior from last season that decays linearly to zero by Game 14 in January. You can uncheck <em>Include prior-season weighting</em> at any time to view pure in-season ratings.</li>
           <li><strong style="color: var(--hi-text);">Altitude Home Court:</strong> In addition to standard home-court advantage (+4.0 pts/100 possessions), high-elevation venues receive a learned +1.55 pts/100 adjustment.</li>
-          <li><strong style="color: var(--hi-text);">Historical Snapshots & Walk-Forward Audit:</strong> Every completed game day's pre-game rankings and picks are archived in <code class="text-xs font-mono">history/YYYY-MM-DD.json</code> and audited in the Performance tab.</li>
+          <li><strong style="color: var(--hi-text);">Mispriced Spreads (Value Picks):</strong> While coin-flipping every game against Vegas yields ~50% ATS, walk-forward backtesting reveals two high-edge pockets where HodgesIndex beats closing lines at <strong>61.5% ATS</strong>: (1) <em>Underdog Flips</em> where the model projects the Vegas underdog to win outright with a 1.5–7.5 pt spread edge, and (2) <em>Competitive Underdog Edges</em> where the Vegas spread is 12 points or less and the model likes the underdog by 2.5–7.0 points. Disagreements larger than 7.5 points or favorite-laying edges are excluded as they typically reflect unmodeled injury/lineup news.</li>
         </ul>
       </div>
     </section>
@@ -621,17 +631,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     function renderSlate() {
       const featuredOnly = document.getElementById('slate-featured-only').checked;
+      const valueOnly = document.getElementById('slate-value-only').checked;
       const games = SLATE.filter(g => {
         if (activeSlateFilter !== 'ALL' && g.date !== activeSlateFilter) return false;
+        if (valueOnly && !g.is_value) return false;
         const r1 = usePrior ? g.r1 : TEAM_MAP[g.t1].np_rank;
         const r2 = usePrior ? g.r2 : TEAM_MAP[g.t2].np_rank;
-        if (featuredOnly && r1 > 60 && r2 > 60) return false;
+        if (!valueOnly && featuredOnly && r1 > 60 && r2 > 60) return false;
         return true;
       });
 
       const tbody = document.getElementById('slate-tbody');
       if (games.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter. Uncheck "Featured games only" to see all D-I games.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter. Uncheck filters above to see all D-I games.</td></tr>`;
         return;
       }
 
@@ -657,19 +669,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           favProb = Math.max(prob2, 100.0 - prob2);
         }
 
+        const valCell = g.is_value
+          ? `<span class="font-semibold" style="color: var(--hi-pos);">${g.val_pick}</span> <span class="text-[11px]" style="color: var(--hi-muted);">(${g.val_edge.toFixed(1)} pt)</span>`
+          : `<span style="color: var(--hi-muted);">—</span>`;
+
         return `
           <tr onclick="openMatchupFromSlate('${g.t1.replace(/'/g, "\\'")}', '${g.t2.replace(/'/g, "\\'")}', ${g.neutral})" class="hi-row cursor-pointer">
-            <td class="py-2.5 px-4 text-xs whitespace-nowrap" style="color: var(--hi-muted);">${g.date_label}</td>
-            <td class="py-2.5 px-4">
+            <td class="py-2.5 px-3.5 text-xs whitespace-nowrap" style="color: var(--hi-muted);">${g.date_label}</td>
+            <td class="py-2.5 px-3.5">
               <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">${rk1}</span><span class="font-medium">${g.t1}</span>
               <span class="text-xs mx-1.5" style="color: var(--hi-muted);">${g.neutral ? 'vs.' : 'at'}</span>
               <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">${rk2}</span><span class="font-medium">${g.t2}</span>
             </td>
-            <td class="py-2.5 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p1.toFixed(0)}–${p2.toFixed(0)}</td>
-            <td class="py-2.5 px-4 text-right font-mono text-xs font-semibold tabular-nums">${fav} -${spr.toFixed(1)}</td>
-            <td class="py-2.5 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${g.vegas || '—'}</td>
-            <td class="py-2.5 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${favProb.toFixed(0)}%</td>
-            <td class="py-2.5 px-4 text-right">${statusCell}</td>
+            <td class="py-2.5 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p1.toFixed(0)}–${p2.toFixed(0)}</td>
+            <td class="py-2.5 px-3 text-right font-mono text-xs font-semibold tabular-nums">${fav} -${spr.toFixed(1)}</td>
+            <td class="py-2.5 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${g.vegas || '—'}</td>
+            <td class="py-2.5 px-3.5 text-right font-mono text-xs tabular-nums whitespace-nowrap">${valCell}</td>
+            <td class="py-2.5 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${favProb.toFixed(0)}%</td>
+            <td class="py-2.5 px-3.5 text-right">${statusCell}</td>
           </tr>
         `;
       }).join('');
@@ -688,10 +705,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const losses = HIST.total_games - HIST.correct;
       const recStr = `${HIST.correct}–${losses} (${HIST.win_pct.toFixed(1)}%)`;
       const atsStr = `${HIST.ats_w || 0}–${HIST.ats_l || 0} (${(HIST.ats_pct || 0).toFixed(1)}%)`;
+      const valStr = `${HIST.val_w || 0}–${HIST.val_l || 0} (${(HIST.val_pct || 0).toFixed(1)}%)`;
       document.getElementById('hdr-record').textContent = recStr;
       document.getElementById('hdr-ats').textContent = atsStr;
+      document.getElementById('hdr-val').textContent = valStr;
       document.getElementById('hist-season-rec').textContent = recStr;
       document.getElementById('hist-season-ats').textContent = atsStr;
+      document.getElementById('hist-season-val').textContent = valStr;
       document.getElementById('hist-season-mae').textContent = `${HIST.mae.toFixed(2)} pts`;
 
       const bGrid = document.getElementById('hist-buckets-grid');
@@ -709,7 +729,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const sel = document.getElementById('hist-date-select');
       sel.innerHTML = HIST.days.map((d, idx) => {
         const l = d.games_count - d.correct;
-        return `<option value="${idx}">${d.label} · SU ${d.correct}–${l} · ATS ${d.ats_w || 0}–${d.ats_l || 0}</option>`;
+        return `<option value="${idx}">${d.label} · SU ${d.correct}–${l} · ATS ${d.ats_w || 0}–${d.ats_l || 0} · Val ${d.val_w || 0}–${d.val_l || 0}</option>`;
       }).join('');
       sel.value = "0";
 
@@ -718,7 +738,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     function setHistOutcomeFilter(filt) {
       histOutcomeFilter = filt;
-      ['ALL', 'ATS_W', 'ATS_L', 'MISS'].forEach(k => {
+      ['ALL', 'VAL', 'ATS_W', 'ATS_L', 'MISS'].forEach(k => {
         const btn = document.getElementById('hfilt-' + k);
         if (!btn) return;
         if (k === filt) {
@@ -763,11 +783,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const day = HIST.days[idx] || HIST.days[0];
       const losses = day.games_count - day.correct;
       document.getElementById('hist-day-summary').textContent =
-        `SU ${day.correct}–${losses} (${day.win_pct.toFixed(1)}%) · ATS ${day.ats_w || 0}–${day.ats_l || 0} (${(day.ats_pct || 0).toFixed(1)}%) · MAE ${day.mae.toFixed(2)} pts`;
+        `SU ${day.correct}–${losses} (${day.win_pct.toFixed(1)}%) · ATS ${day.ats_w || 0}–${day.ats_l || 0} (${(day.ats_pct || 0).toFixed(1)}%) · Val ${day.val_w || 0}–${day.val_l || 0} (${(day.val_pct || 0).toFixed(1)}%) · MAE ${day.mae.toFixed(2)} pts`;
 
       // Render Picks Table
       let picks = day.picks || [];
       if (histOutcomeFilter === 'MISS') picks = picks.filter(p => !p.hit);
+      else if (histOutcomeFilter === 'VAL') picks = picks.filter(p => p.is_value);
       else if (histOutcomeFilter === 'ATS_W') picks = picks.filter(p => p.ats_res === 'W');
       else if (histOutcomeFilter === 'ATS_L') picks = picks.filter(p => p.ats_res === 'L');
 
@@ -782,7 +803,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           let atsCell = '<span style="color: var(--hi-muted);">—</span>';
           if (p.ats_pick) {
             const atsColor = p.ats_res === 'W' ? 'var(--hi-pos)' : (p.ats_res === 'L' ? 'var(--hi-neg)' : 'var(--hi-muted)');
-            atsCell = `<span class="font-semibold" style="color: ${atsColor};">${p.ats_res}</span> <span style="color: var(--hi-muted);">${p.ats_pick}</span>`;
+            const valTag = p.is_value
+              ? `<span title="Mispriced Spread Value Pick (${p.val_type}, +${p.val_edge.toFixed(1)} pt edge)" class="mr-1 text-[10px] font-mono px-1 py-0.5 rounded" style="background-color: var(--hi-accent-soft); color: var(--hi-accent-text);">VAL</span>`
+              : '';
+            atsCell = `${valTag}<span class="font-semibold" style="color: ${atsColor};">${p.ats_res}</span> <span style="color: var(--hi-muted);">${p.ats_pick}</span>`;
           }
           return `
             <tr class="hi-row">
@@ -795,8 +819,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${p.r2}</span><span class="font-medium">${p.t2}</span>
               </td>
               <td class="py-2 px-3 text-right font-mono text-xs font-semibold tabular-nums">${p.fav} -${p.spread.toFixed(1)}</td>
-              <td class="py-2 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.vegas || '—'}</td>
-              <td class="py-2 px-3 text-right font-mono text-xs tabular-nums">${atsCell}</td>
+              <td class="py-2.5 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.vegas || '—'}</td>
+              <td class="py-2 px-3 text-right font-mono text-xs tabular-nums whitespace-nowrap">${atsCell}</td>
               <td class="py-2 px-3 text-right font-mono text-xs font-semibold tabular-nums">${p.winner} ${Math.max(p.p1, p.p2)}–${Math.min(p.p1, p.p2)}</td>
               <td class="py-2 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.err.toFixed(1)}</td>
             </tr>
