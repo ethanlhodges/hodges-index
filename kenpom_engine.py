@@ -32,7 +32,7 @@ HIGH_ALTITUDE_TEAMS = {
 PRODUCTION_CONFIG = {
     "zero_ridge_alpha": 1.5,
     "recency_decay": 0.9975,
-    "margin_cap": 55.0,
+    "margin_cap": 26.0,         # ~18 actual points in a 70-poss game (expectation-anchored for mismatches)
     "three_pt_luck_weight": 0.15,
     "eb_3p_prior_att": 150.0,
     "eb_3p_prior_mean": 0.340,
@@ -201,13 +201,32 @@ def solve_model(
     ortg1 = 100.0 * pts1 / poss
     ortg2 = 100.0 * pts2 / poss
 
-    # 2. Soft Garbage-Time / Blowout Margin Cap
+    # 2. Expectation-Anchored Soft Garbage-Time / Blowout Margin Cap
+    # Normal matchups cap at margin_cap (26.0 pts/100 poss ~ 18 actual points).
+    # In heavy mismatches where the expected margin already exceeds 26.0, anchor at
+    # the expected margin so favorites aren't penalized for covering a 30-pt spread,
+    # while still discounting any garbage-time run-up beyond expectation by 75%.
     if margin_cap > 0.0:
         diff = ortg1 - ortg2
-        over = np.abs(diff) > margin_cap
+        if priors_map:
+            em_prior = np.array([
+                prior_shrinkage * (priors_map[t][0] - priors_map[t][1])
+                if t in priors_map
+                else (PRODUCTION_CONFIG["new_d1_prior_off"] - PRODUCTION_CONFIG["new_d1_prior_def"])
+                for t in teams
+            ], dtype=np.float64)
+            hca_est = np.where(is_neutral, 0.0, PRODUCTION_CONFIG["std_hca"])
+            exp_diff = (em_prior[i1] - em_prior[i2]) - hca_est
+            # Only raise the cap above margin_cap in the direction of the expected blowout
+            thresh = np.maximum(margin_cap, np.sign(diff) * exp_diff)
+        else:
+            thresh = np.full_like(diff, margin_cap)
+
+        over = np.abs(diff) > thresh
         if np.any(over):
             mid = 0.5 * (ortg1[over] + ortg2[over])
-            capped = np.sign(diff[over]) * (margin_cap + 0.25 * (np.abs(diff[over]) - margin_cap))
+            t_over = thresh[over]
+            capped = np.sign(diff[over]) * (t_over + 0.25 * (np.abs(diff[over]) - t_over))
             ortg1[over] = mid + 0.5 * capped
             ortg2[over] = mid - 0.5 * capped
 
