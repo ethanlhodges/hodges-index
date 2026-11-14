@@ -109,7 +109,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <p class="text-xs mt-1" style="color: var(--hi-muted);">
           Updated <span id="hdr-date" class="font-medium" style="color: var(--hi-text);">—</span> ·
           <span id="hdr-games">—</span> games ·
-          Season Picks <span id="hdr-record" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
+          SU <span id="hdr-record" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
+          ATS <span id="hdr-ats" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
           Prior weight <span id="hdr-prior" class="font-mono tabular-nums" style="color: var(--hi-text);">—</span>
         </p>
       </div>
@@ -210,7 +211,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <th class="py-2.5 px-4 font-semibold">Date</th>
                 <th class="py-2.5 px-4 font-semibold">Matchup</th>
                 <th class="py-2.5 px-4 font-semibold text-right">Projection</th>
-                <th class="py-2.5 px-4 font-semibold text-right">Line</th>
+                <th class="py-2.5 px-4 font-semibold text-right">Model Line</th>
+                <th class="py-2.5 px-4 font-semibold text-right">Vegas Line</th>
                 <th class="py-2.5 px-4 font-semibold text-right">Win Prob</th>
                 <th class="py-2.5 px-4 font-semibold text-right">Status</th>
               </tr>
@@ -228,10 +230,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b" style="border-color: var(--hi-border);">
           <div>
             <h2 class="text-sm font-bold">2026–27 Walk-Forward Model Performance</h2>
-            <p class="text-xs" style="color: var(--hi-muted);">Strictly out-of-sample pre-game picks evaluated using only games completed prior to each date.</p>
+            <p class="text-xs" style="color: var(--hi-muted);">Strictly out-of-sample pre-game picks evaluated Straight-Up (SU) and Against the Vegas Spread (ATS).</p>
           </div>
-          <div class="flex items-center gap-4 text-xs font-mono tabular-nums">
-            <span>Season Record: <strong id="hist-season-rec" style="color: var(--hi-pos);">—</strong></span>
+          <div class="flex flex-wrap items-center gap-4 text-xs font-mono tabular-nums">
+            <span>Straight-Up: <strong id="hist-season-rec" style="color: var(--hi-pos);">—</strong></span>
+            <span>Vegas ATS: <strong id="hist-season-ats" style="color: var(--hi-text);">—</strong></span>
             <span>Spread MAE: <strong id="hist-season-mae" style="color: var(--hi-text);">—</strong></span>
           </div>
         </div>
@@ -248,10 +251,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <div class="flex items-center gap-1" id="hist-filter-group">
-            <button onclick="setHistOutcomeFilter('ALL')" id="hfilt-ALL" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">All Picks</button>
-            <button onclick="setHistOutcomeFilter('MISS')" id="hfilt-MISS" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Misses / Upsets</button>
-            <button onclick="setHistOutcomeFilter('HIT')" id="hfilt-HIT" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Hits</button>
+          <div class="flex flex-wrap items-center gap-1" id="hist-filter-group">
+            <button onclick="setHistOutcomeFilter('ALL')" id="hfilt-ALL" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">All</button>
+            <button onclick="setHistOutcomeFilter('ATS_W')" id="hfilt-ATS_W" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">ATS Wins</button>
+            <button onclick="setHistOutcomeFilter('ATS_L')" id="hfilt-ATS_L" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">ATS Losses</button>
+            <button onclick="setHistOutcomeFilter('MISS')" id="hfilt-MISS" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">SU Upsets</button>
           </div>
           <span style="color: var(--hi-border);">|</span>
           <button onclick="toggleHistMode()" id="hist-mode-btn" class="px-2.5 py-1 text-xs font-medium rounded hi-subcard hover:opacity-80 cursor-pointer">
@@ -266,13 +270,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <table class="w-full text-left border-collapse">
             <thead class="sticky top-0 z-10 text-xs" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
               <tr>
-                <th class="py-2.5 px-3.5 font-semibold w-16">Result</th>
-                <th class="py-2.5 px-3.5 font-semibold">Matchup (Pre-Game Rk)</th>
-                <th class="py-2.5 px-3.5 font-semibold text-right">Pre-Game Pick</th>
-                <th class="py-2.5 px-3.5 font-semibold text-right">Win Prob</th>
-                <th class="py-2.5 px-3.5 font-semibold text-right">Proj Score</th>
-                <th class="py-2.5 px-3.5 font-semibold text-right">Actual Score</th>
-                <th class="py-2.5 px-3.5 font-semibold text-right">Spread Err</th>
+                <th class="py-2.5 px-3 font-semibold w-14">SU</th>
+                <th class="py-2.5 px-3 font-semibold">Matchup (Pre-Game Rk)</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Model Line</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Vegas Line</th>
+                <th class="py-2.5 px-3 font-semibold text-right">ATS Pick</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Actual Score</th>
+                <th class="py-2.5 px-3 font-semibold text-right">Err</th>
               </tr>
             </thead>
             <tbody id="hist-picks-tbody" class="text-sm"></tbody>
@@ -627,7 +631,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       const tbody = document.getElementById('slate-tbody');
       if (games.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter. Uncheck "Featured games only" to see all D-I games.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter. Uncheck "Featured games only" to see all D-I games.</td></tr>`;
         return;
       }
 
@@ -663,6 +667,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </td>
             <td class="py-2.5 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p1.toFixed(0)}–${p2.toFixed(0)}</td>
             <td class="py-2.5 px-4 text-right font-mono text-xs font-semibold tabular-nums">${fav} -${spr.toFixed(1)}</td>
+            <td class="py-2.5 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${g.vegas || '—'}</td>
             <td class="py-2.5 px-4 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${favProb.toFixed(0)}%</td>
             <td class="py-2.5 px-4 text-right">${statusCell}</td>
           </tr>
@@ -682,8 +687,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       if (!HIST.days || HIST.days.length === 0) return;
       const losses = HIST.total_games - HIST.correct;
       const recStr = `${HIST.correct}–${losses} (${HIST.win_pct.toFixed(1)}%)`;
+      const atsStr = `${HIST.ats_w || 0}–${HIST.ats_l || 0} (${(HIST.ats_pct || 0).toFixed(1)}%)`;
       document.getElementById('hdr-record').textContent = recStr;
+      document.getElementById('hdr-ats').textContent = atsStr;
       document.getElementById('hist-season-rec').textContent = recStr;
+      document.getElementById('hist-season-ats').textContent = atsStr;
       document.getElementById('hist-season-mae').textContent = `${HIST.mae.toFixed(2)} pts`;
 
       const bGrid = document.getElementById('hist-buckets-grid');
@@ -701,7 +709,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const sel = document.getElementById('hist-date-select');
       sel.innerHTML = HIST.days.map((d, idx) => {
         const l = d.games_count - d.correct;
-        return `<option value="${idx}">${d.label} (${d.correct}–${l} · ${d.win_pct.toFixed(1)}%)</option>`;
+        return `<option value="${idx}">${d.label} · SU ${d.correct}–${l} · ATS ${d.ats_w || 0}–${d.ats_l || 0}</option>`;
       }).join('');
       sel.value = "0";
 
@@ -710,8 +718,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     function setHistOutcomeFilter(filt) {
       histOutcomeFilter = filt;
-      ['ALL', 'MISS', 'HIT'].forEach(k => {
+      ['ALL', 'ATS_W', 'ATS_L', 'MISS'].forEach(k => {
         const btn = document.getElementById('hfilt-' + k);
+        if (!btn) return;
         if (k === filt) {
           btn.style.backgroundColor = 'var(--hi-text)';
           btn.style.color = 'var(--hi-surface)';
@@ -754,12 +763,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const day = HIST.days[idx] || HIST.days[0];
       const losses = day.games_count - day.correct;
       document.getElementById('hist-day-summary').textContent =
-        `${day.correct}–${losses} straight-up (${day.win_pct.toFixed(1)}%) · Spread MAE ${day.mae.toFixed(2)} pts · Prior weight ${day.prior_weight}`;
+        `SU ${day.correct}–${losses} (${day.win_pct.toFixed(1)}%) · ATS ${day.ats_w || 0}–${day.ats_l || 0} (${(day.ats_pct || 0).toFixed(1)}%) · MAE ${day.mae.toFixed(2)} pts`;
 
       // Render Picks Table
       let picks = day.picks || [];
       if (histOutcomeFilter === 'MISS') picks = picks.filter(p => !p.hit);
-      else if (histOutcomeFilter === 'HIT') picks = picks.filter(p => p.hit);
+      else if (histOutcomeFilter === 'ATS_W') picks = picks.filter(p => p.ats_res === 'W');
+      else if (histOutcomeFilter === 'ATS_L') picks = picks.filter(p => p.ats_res === 'L');
 
       const pTbody = document.getElementById('hist-picks-tbody');
       if (picks.length === 0) {
@@ -769,22 +779,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           const badgeStyle = p.hit
             ? 'color: var(--hi-pos); background-color: var(--hi-surface-alt);'
             : 'color: var(--hi-neg); background-color: var(--hi-surface-alt);';
-          const actMargin = Math.abs(p.p2 - p.p1);
+          let atsCell = '<span style="color: var(--hi-muted);">—</span>';
+          if (p.ats_pick) {
+            const atsColor = p.ats_res === 'W' ? 'var(--hi-pos)' : (p.ats_res === 'L' ? 'var(--hi-neg)' : 'var(--hi-muted)');
+            atsCell = `<span class="font-semibold" style="color: ${atsColor};">${p.ats_res}</span> <span style="color: var(--hi-muted);">${p.ats_pick}</span>`;
+          }
           return `
             <tr class="hi-row">
-              <td class="py-2 px-3.5">
+              <td class="py-2 px-3">
                 <span class="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded" style="${badgeStyle}">${p.hit ? 'HIT' : 'MISS'}</span>
               </td>
-              <td class="py-2 px-3.5">
+              <td class="py-2 px-3">
                 <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${p.r1}</span><span class="font-medium">${p.t1}</span>
                 <span class="text-xs mx-1.5" style="color: var(--hi-muted);">${p.neutral ? 'vs.' : 'at'}</span>
                 <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${p.r2}</span><span class="font-medium">${p.t2}</span>
               </td>
-              <td class="py-2 px-3.5 text-right font-mono text-xs font-semibold tabular-nums">${p.fav} -${p.spread.toFixed(1)}</td>
-              <td class="py-2 px-3.5 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.prob.toFixed(1)}%</td>
-              <td class="py-2 px-3.5 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.pred1.toFixed(0)}–${p.pred2.toFixed(0)}</td>
-              <td class="py-2 px-3.5 text-right font-mono text-xs font-semibold tabular-nums">${p.winner} ${Math.max(p.p1, p.p2)}–${Math.min(p.p1, p.p2)}</td>
-              <td class="py-2 px-3.5 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.err.toFixed(1)}</td>
+              <td class="py-2 px-3 text-right font-mono text-xs font-semibold tabular-nums">${p.fav} -${p.spread.toFixed(1)}</td>
+              <td class="py-2 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.vegas || '—'}</td>
+              <td class="py-2 px-3 text-right font-mono text-xs tabular-nums">${atsCell}</td>
+              <td class="py-2 px-3 text-right font-mono text-xs font-semibold tabular-nums">${p.winner} ${Math.max(p.p1, p.p2)}–${Math.min(p.p1, p.p2)}</td>
+              <td class="py-2 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.err.toFixed(1)}</td>
             </tr>
           `;
         }).join('');

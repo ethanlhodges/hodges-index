@@ -23,11 +23,12 @@ from kenpom_engine import (
 HISTORY_DIR = DATA_DIR / "history"
 
 
-def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
+def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
     """
     Computes strictly out-of-sample (pre-game) rankings and game predictions for every
-    completed game date of the 2026-27 season, writes full daily snapshots to
-    history/YYYY-MM-DD.json, and returns a compact summary for site_payload.json.
+    completed game date of the 2026-27 season, evaluates Straight-Up and Against the Spread (ATS)
+    performance vs Vegas closing lines, writes full daily snapshots to history/YYYY-MM-DD.json,
+    and returns a compact summary for site_payload.json.
     """
     HISTORY_DIR.mkdir(exist_ok=True)
     std_hca = PRODUCTION_CONFIG["std_hca"]
@@ -39,6 +40,9 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
 
     total_games = 0
     total_hits = 0
+    total_ats_w = 0
+    total_ats_l = 0
+    total_ats_p = 0
     all_errs = []
 
     # Calibration buckets: 50-60%, 60-70%, 70-80%, 80-90%, 90-100%
@@ -112,7 +116,6 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
                 ref_date=dt_obj,
             )
             mu = res["mu"]
-            # Compute W-L entering this date
             wl_prior = {t: [0, 0] for t in meta_27}
             for pg in prior_games:
                 w_t = pg["t1"] if pg["t1_pts"] > pg["t2_pts"] else pg["t2"]
@@ -141,6 +144,9 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
 
         day_picks = []
         day_hits = 0
+        day_ats_w = 0
+        day_ats_l = 0
+        day_ats_p = 0
         day_errs = []
 
         for g in day_games:
@@ -176,6 +182,40 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
             day_errs.append(err)
             all_errs.append(err)
 
+            # Evaluate ATS vs Vegas closing line if available
+            v_key = f"{d_str}|{t1}|{t2}"
+            vegas_str = ""
+            ats_pick = ""
+            ats_res = ""
+            if v_key in vegas_map:
+                v_info = vegas_map[v_key]
+                v_fav = v_info["fav"]
+                v_spr = float(v_info["spread"])
+                v_dog = t1 if v_fav == t2 else t2
+                vegas_str = f"{v_fav} -{v_spr:.1f}" if v_spr > 0 else "PK"
+                # Expected Team 2 margin implied by Vegas line
+                v_m2 = v_spr if v_fav == t2 else -v_spr
+                if abs(pred_margin2 - v_m2) >= 0.05:
+                    # Does model like Team 2 more than Vegas does?
+                    pick_t2 = pred_margin2 > v_m2
+                    if pick_t2:
+                        ats_pick = f"{t2} {'-' + str(v_spr) if v_fav == t2 else '+' + str(v_spr)}"
+                    else:
+                        ats_pick = f"{t1} {'-' + str(v_spr) if v_fav == t1 else '+' + str(v_spr)}"
+
+                    if actual_margin2 == v_m2:
+                        ats_res = "P"
+                        day_ats_p += 1
+                        total_ats_p += 1
+                    elif (pick_t2 and actual_margin2 > v_m2) or ((not pick_t2) and actual_margin2 < v_m2):
+                        ats_res = "W"
+                        day_ats_w += 1
+                        total_ats_w += 1
+                    else:
+                        ats_res = "L"
+                        day_ats_l += 1
+                        total_ats_l += 1
+
             for b_lbl, b_lo, b_hi in bucket_defs:
                 if b_lo <= fav_prob < b_hi:
                     bucket_stats[b_lbl]["n"] += 1
@@ -194,21 +234,28 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
                 "winner": actual_winner,
                 "hit": hit,
                 "err": err,
+                "vegas": vegas_str,
+                "ats_pick": ats_pick,
+                "ats_res": ats_res,
                 "thrill": thrill,
             })
 
         day_picks.sort(key=lambda x: -x["thrill"])
         day_mae = round(sum(day_errs) / max(1, len(day_errs)), 2)
         day_win_pct = round(100.0 * day_hits / max(1, len(day_picks)), 1)
+        day_ats_pct = round(100.0 * day_ats_w / max(1, day_ats_w + day_ats_l), 1)
         label = dt_obj.strftime("%a, %b ") + str(dt_obj.day)
 
-        # Write full 365-team snapshot + picks to history/YYYY-MM-DD.json
         full_snapshot = {
             "date": d_str,
             "label": label,
             "games_count": len(day_picks),
             "correct": day_hits,
             "win_pct": day_win_pct,
+            "ats_w": day_ats_w,
+            "ats_l": day_ats_l,
+            "ats_p": day_ats_p,
+            "ats_pct": day_ats_pct,
             "mae": day_mae,
             "prior_weight": round(pw, 2),
             "picks": day_picks,
@@ -222,13 +269,17 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
             "games_count": len(day_picks),
             "correct": day_hits,
             "win_pct": day_win_pct,
+            "ats_w": day_ats_w,
+            "ats_l": day_ats_l,
+            "ats_p": day_ats_p,
+            "ats_pct": day_ats_pct,
             "mae": day_mae,
             "prior_weight": round(pw, 2),
             "picks": day_picks,
             "top40": rankings_snapshot[:40],
         })
 
-    days_payload.reverse()  # Most recent date first (e.g. Nov 13 first)
+    days_payload.reverse()
 
     buckets_out = []
     for b_lbl, _, _ in bucket_defs:
@@ -246,6 +297,10 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26):
         "total_games": total_games,
         "correct": total_hits,
         "win_pct": round(100.0 * total_hits / max(1, total_games), 1),
+        "ats_w": total_ats_w,
+        "ats_l": total_ats_l,
+        "ats_p": total_ats_p,
+        "ats_pct": round(100.0 * total_ats_w / max(1, total_ats_w + total_ats_l), 1),
         "mae": round(sum(all_errs) / max(1, len(all_errs)), 2),
         "buckets": buckets_out,
         "days": days_payload,
@@ -401,6 +456,9 @@ def build_site_payload():
     with open(DATA_DIR / "2027_super_sked.json") as f:
         raw_sked = json.load(f)
 
+    vegas_path = DATA_DIR / "vegas_lines_2027.json"
+    vegas_map = json.loads(vegas_path.read_text()) if vegas_path.exists() else {}
+
     slate_games = []
     team_info_map = {r["team"]: r for r in teams_list}
 
@@ -437,6 +495,10 @@ def build_site_payload():
         spread_val = round(abs(margin2), 1)
         thrill_score = round(0.5 * (r1["adj_em"] + r2["adj_em"]) - 0.35 * spread_val, 2)
 
+        d_iso = datetime.strptime(d_str, "%m/%d/%y").strftime("%Y-%m-%d")
+        v_info = vegas_map.get(f"{d_iso}|{t1}|{t2}")
+        vegas_str = f"{v_info['fav']} -{v_info['spread']:.1f}" if v_info else ""
+
         slate_games.append({
             "date": d_str,
             "date_idx": date_order[d_str],
@@ -447,6 +509,7 @@ def build_site_payload():
             "pred1": pred_pts1, "pred2": pred_pts2,
             "prob1": prob1, "prob2": prob2,
             "fav": fav_team, "spread": spread_val,
+            "vegas": vegas_str,
             "torvik_line": str(g[4]),
             "is_final": is_final,
             "actual": str(g[24]) if is_final else "",
@@ -457,7 +520,7 @@ def build_site_payload():
     slate_games.sort(key=lambda x: (x["date_idx"], -x["thrill"]))
 
     # 4. Build Walk-Forward Historical Rankings & Daily Picks Performance
-    history_data = build_walk_forward_history(meta_27, games_27, priors_26, mu_26)
+    history_data = build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map)
 
     # Also archive today's pre-game rankings & today's slate predictions to history/YYYY-MM-DD_pregame.json
     today_iso = eastern_today.strftime("%Y-%m-%d")
