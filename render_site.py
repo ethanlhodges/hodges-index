@@ -111,7 +111,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <span id="hdr-games">—</span> games ·
           SU <span id="hdr-record" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
           ATS <span id="hdr-ats" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
-          Value Picks <span id="hdr-val" class="font-mono font-semibold tabular-nums" style="color: var(--hi-pos);">—</span> ·
+          <button onclick="switchMainTab('value')" class="hover:underline cursor-pointer">Value Picks <span id="hdr-val" class="font-mono font-semibold tabular-nums" style="color: var(--hi-pos);">—</span></button> ·
           Prior weight <span id="hdr-prior" class="font-mono tabular-nums" style="color: var(--hi-text);">—</span>
         </p>
       </div>
@@ -123,6 +123,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           </button>
           <button onclick="switchMainTab('slate')" id="nav-slate" class="pb-1 font-medium transition cursor-pointer">
             Games
+          </button>
+          <button onclick="switchMainTab('value')" id="nav-value" class="pb-1 font-medium transition cursor-pointer">
+            Value Picks
           </button>
           <button onclick="switchMainTab('history')" id="nav-history" class="pb-1 font-medium transition cursor-pointer">
             Performance
@@ -198,16 +201,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <section id="tab-slate" class="hidden space-y-3">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div id="slate-filter-btns" class="flex flex-wrap items-center gap-1.5"></div>
-        <div class="flex flex-wrap items-center gap-4">
-          <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--hi-muted);">
-            <input id="slate-value-only" type="checkbox" onchange="renderSlate()" class="rounded cursor-pointer" style="accent-color: var(--hi-accent);" />
-            <span class="font-medium" style="color: var(--hi-text);">Value Picks only (Mispriced Spreads)</span>
-          </label>
-          <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--hi-muted);">
-            <input id="slate-featured-only" type="checkbox" checked onchange="renderSlate()" class="rounded cursor-pointer" style="accent-color: var(--hi-accent);" />
-            <span>Featured games only (Top 60)</span>
-          </label>
-        </div>
+        <label class="inline-flex items-center gap-1.5 text-xs cursor-pointer" style="color: var(--hi-muted);">
+          <input id="slate-featured-only" type="checkbox" checked onchange="renderSlate()" class="rounded cursor-pointer" style="accent-color: var(--hi-accent);" />
+          <span>Featured games only (Top 60)</span>
+        </label>
       </div>
 
       <div class="hi-card rounded-lg overflow-hidden">
@@ -220,7 +217,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <th class="py-2.5 px-3 font-semibold text-right">Projection</th>
                 <th class="py-2.5 px-3 font-semibold text-right">Model Line</th>
                 <th class="py-2.5 px-3 font-semibold text-right">Vegas Line</th>
-                <th class="py-2.5 px-3.5 font-semibold text-right">Value Bet (Edge)</th>
+                <th class="py-2.5 px-3.5 font-semibold text-right">Value Bet</th>
                 <th class="py-2.5 px-3 font-semibold text-right">Win Prob</th>
                 <th class="py-2.5 px-3.5 font-semibold text-right">Status</th>
               </tr>
@@ -231,7 +228,84 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
     </section>
 
-    <!-- ==================== TAB 3: HISTORICAL PERFORMANCE & ARCHIVE ==================== -->
+    <!-- ==================== TAB 3: STANDALONE VALUE PICKS (MISPRICED SPREADS) ==================== -->
+    <section id="tab-value" class="hidden space-y-4">
+      <div class="hi-card rounded-lg p-4 space-y-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="text-sm font-bold">Mispriced Spreads · Proposed Value Bets</h2>
+            <p class="text-xs mt-0.5" style="color: var(--hi-muted);">
+              Games where HodgesIndex projects significant value on the Vegas underdog: either an <strong>Outright Flip</strong> (model favors the Vegas underdog to win straight-up with a 1.5–7.5 pt spread edge) or a <strong>Competitive Underdog Edge</strong> (Vegas spread ≤ 12 pts with a 2.5–7.0 pt model edge).
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-4 text-xs font-mono tabular-nums shrink-0">
+            <span>2026–27 Value Record: <strong id="val-tab-record" style="color: var(--hi-pos);">—</strong></span>
+            <span>All Games ATS: <strong id="val-tab-all-ats" style="color: var(--hi-muted);">—</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upcoming Proposed Bets -->
+      <div class="space-y-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--hi-muted);">Upcoming Value Bets to Take</h3>
+          <span id="val-upcoming-count" class="text-xs font-mono tabular-nums" style="color: var(--hi-muted);"></span>
+        </div>
+
+        <div class="hi-card rounded-lg overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead class="text-xs" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
+                <tr>
+                  <th class="py-2.5 px-3.5 font-semibold">Date</th>
+                  <th class="py-2.5 px-3.5 font-semibold">Matchup</th>
+                  <th class="py-2.5 px-3.5 font-semibold">Bet to Take</th>
+                  <th class="py-2.5 px-3.5 font-semibold text-right">Vegas Spread</th>
+                  <th class="py-2.5 px-3.5 font-semibold text-right">Model Line (Proj)</th>
+                  <th class="py-2.5 px-3.5 font-semibold text-right">Spread Edge</th>
+                  <th class="py-2.5 px-3.5 font-semibold text-right">Signal</th>
+                </tr>
+              </thead>
+              <tbody id="val-upcoming-tbody" class="text-sm"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completed Value Picks Season Audit -->
+      <div class="space-y-2 pt-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--hi-muted);">Completed Value Bets Track Record (2026–27)</h3>
+          <div class="flex items-center gap-1.5" id="val-hist-filter-group">
+            <button onclick="setValHistFilter('ALL')" id="vhfilt-ALL" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">All</button>
+            <button onclick="setValHistFilter('W')" id="vhfilt-W" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Wins</button>
+            <button onclick="setValHistFilter('L')" id="vhfilt-L" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Losses</button>
+          </div>
+        </div>
+
+        <div class="hi-card rounded-lg overflow-hidden">
+          <div class="overflow-x-auto max-h-[520px] overflow-y-auto">
+            <table class="w-full text-left border-collapse">
+              <thead class="sticky top-0 z-10 text-xs" style="background-color: var(--hi-surface-alt); color: var(--hi-muted); border-bottom: 1px solid var(--hi-border);">
+                <tr>
+                  <th class="py-2.5 px-3.5 font-semibold w-16">Result</th>
+                  <th class="py-2.5 px-3 font-semibold">Date</th>
+                  <th class="py-2.5 px-3.5 font-semibold">Matchup (Pre-Game Rk)</th>
+                  <th class="py-2.5 px-3.5 font-semibold">Bet Taken</th>
+                  <th class="py-2.5 px-3 font-semibold text-right">Vegas Line</th>
+                  <th class="py-2.5 px-3 font-semibold text-right">Model Line</th>
+                  <th class="py-2.5 px-3 font-semibold text-right">Edge</th>
+                  <th class="py-2.5 px-3.5 font-semibold text-right">Final Score</th>
+                </tr>
+              </thead>
+              <tbody id="val-history-tbody" class="text-sm"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: HISTORICAL PERFORMANCE & ARCHIVE ==================== -->
     <section id="tab-history" class="hidden space-y-4">
       <!-- Season Summary & Calibration Strip -->
       <div class="hi-card rounded-lg p-4 space-y-3">
@@ -284,7 +358,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <th class="py-2.5 px-3 font-semibold">Matchup (Pre-Game Rk)</th>
                 <th class="py-2.5 px-3 font-semibold text-right">Model Line</th>
                 <th class="py-2.5 px-3 font-semibold text-right">Vegas Line</th>
-                <th class="py-2.5 px-3 font-semibold text-right">ATS Pick</th>
+                <th class="py-2.5 px-3 font-semibold text-right">ATS Pick / Bet</th>
                 <th class="py-2.5 px-3 font-semibold text-right">Actual Score</th>
                 <th class="py-2.5 px-3 font-semibold text-right">Err</th>
               </tr>
@@ -320,7 +394,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
     </section>
 
-    <!-- ==================== TAB 4: HEAD-TO-HEAD PREDICTOR ==================== -->
+    <!-- ==================== TAB 5: HEAD-TO-HEAD PREDICTOR ==================== -->
     <section id="tab-matchup" class="hidden max-w-2xl mx-auto pt-2">
       <div class="hi-card rounded-lg p-6 space-y-5">
         <div class="flex items-center justify-between border-b pb-3" style="border-color: var(--hi-border);">
@@ -381,7 +455,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       </div>
     </section>
 
-    <!-- ==================== TAB 5: METHODOLOGY ==================== -->
+    <!-- ==================== TAB 6: METHODOLOGY ==================== -->
     <section id="tab-model" class="hidden max-w-3xl mx-auto">
       <div class="hi-card rounded-lg p-6 md:p-8 space-y-4 text-sm leading-relaxed">
         <h2 class="text-base font-bold">Methodology</h2>
@@ -470,6 +544,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     let simLoc = 'neutral';
     let usePrior = true;
     let histOutcomeFilter = 'ALL';
+    let valHistFilter = 'ALL';
     let histViewRanks = false;
 
     function toggleTheme() {
@@ -502,7 +577,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     function switchMainTab(tab) {
-      ['rankings', 'slate', 'history', 'matchup', 'model'].forEach(t => {
+      ['rankings', 'slate', 'value', 'history', 'matchup', 'model'].forEach(t => {
         const btn = document.getElementById('nav-' + t);
         const pane = document.getElementById('tab-' + t);
         if (t === tab) {
@@ -631,19 +706,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     function renderSlate() {
       const featuredOnly = document.getElementById('slate-featured-only').checked;
-      const valueOnly = document.getElementById('slate-value-only').checked;
       const games = SLATE.filter(g => {
         if (activeSlateFilter !== 'ALL' && g.date !== activeSlateFilter) return false;
-        if (valueOnly && !g.is_value) return false;
         const r1 = usePrior ? g.r1 : TEAM_MAP[g.t1].np_rank;
         const r2 = usePrior ? g.r2 : TEAM_MAP[g.t2].np_rank;
-        if (!valueOnly && featuredOnly && r1 > 60 && r2 > 60) return false;
+        if (featuredOnly && r1 > 60 && r2 > 60) return false;
         return true;
       });
 
       const tbody = document.getElementById('slate-tbody');
       if (games.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter. Uncheck filters above to see all D-I games.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No games match this filter. Uncheck "Featured games only" to see all D-I games.</td></tr>`;
         return;
       }
 
@@ -670,7 +743,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         const valCell = g.is_value
-          ? `<span class="font-semibold" style="color: var(--hi-pos);">${g.val_pick}</span> <span class="text-[11px]" style="color: var(--hi-muted);">(${g.val_edge.toFixed(1)} pt)</span>`
+          ? `<span class="px-1.5 py-0.5 rounded font-semibold" style="background-color: var(--hi-accent-soft); color: var(--hi-accent-text);">TAKE: ${g.val_pick}</span>`
           : `<span style="color: var(--hi-muted);">—</span>`;
 
         return `
@@ -697,6 +770,115 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       document.getElementById('sim-b').value = t2;
       setSimLoc(isNeutral ? 'neutral' : 'home_b');
       switchMainTab('matchup');
+    }
+
+    // ==================== STANDALONE VALUE PICKS TAB ====================
+    function initValueTab() {
+      const valStr = `${HIST.val_w || 0}–${HIST.val_l || 0} (${(HIST.val_pct || 0).toFixed(1)}%)`;
+      const atsStr = `${HIST.ats_w || 0}–${HIST.ats_l || 0} (${(HIST.ats_pct || 0).toFixed(1)}%)`;
+      document.getElementById('val-tab-record').textContent = valStr;
+      document.getElementById('val-tab-all-ats').textContent = atsStr;
+
+      const upcoming = SLATE.filter(g => g.is_value).sort((a, b) => a.date_idx - b.date_idx || b.val_edge - a.val_edge);
+      document.getElementById('val-upcoming-count').textContent = `${upcoming.length} active value bets`;
+      const uTbody = document.getElementById('val-upcoming-tbody');
+      if (upcoming.length === 0) {
+        uTbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No upcoming games currently meet the Value Pick criteria.</td></tr>`;
+      } else {
+        uTbody.innerHTML = upcoming.map(g => {
+          const sigLabel = g.val_type === 'Flip' ? 'Outright Flip (Dog Favored)' : 'Competitive Dog Edge';
+          return `
+            <tr onclick="openMatchupFromSlate('${g.t1.replace(/'/g, "\\'")}', '${g.t2.replace(/'/g, "\\'")}', ${g.neutral})" class="hi-row cursor-pointer">
+              <td class="py-2.5 px-3.5 text-xs whitespace-nowrap" style="color: var(--hi-muted);">${g.date_label}</td>
+              <td class="py-2.5 px-3.5">
+                <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${g.r1}</span><span class="font-medium">${g.t1}</span>
+                <span class="text-xs mx-1.5" style="color: var(--hi-muted);">${g.neutral ? 'vs.' : 'at'}</span>
+                <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${g.r2}</span><span class="font-medium">${g.t2}</span>
+              </td>
+              <td class="py-2.5 px-3.5 whitespace-nowrap">
+                <span class="px-2 py-1 rounded font-mono text-xs font-bold" style="background-color: var(--hi-accent-soft); color: var(--hi-accent-text);">
+                  TAKE: ${g.val_pick}
+                </span>
+              </td>
+              <td class="py-2.5 px-3.5 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${g.vegas}</td>
+              <td class="py-2.5 px-3.5 text-right font-mono text-xs font-semibold tabular-nums">
+                ${g.fav} -${g.spread.toFixed(1)} <span class="font-normal" style="color: var(--hi-muted);">(${g.pred1.toFixed(0)}–${g.pred2.toFixed(0)})</span>
+              </td>
+              <td class="py-2.5 px-3.5 text-right font-mono text-xs font-bold tabular-nums" style="color: var(--hi-pos);">+${g.val_edge.toFixed(1)} pts</td>
+              <td class="py-2.5 px-3.5 text-right text-xs" style="color: var(--hi-muted);">${sigLabel}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      setValHistFilter('ALL');
+    }
+
+    function setValHistFilter(filt) {
+      valHistFilter = filt;
+      ['ALL', 'W', 'L'].forEach(k => {
+        const btn = document.getElementById('vhfilt-' + k);
+        if (!btn) return;
+        if (k === filt) {
+          btn.style.backgroundColor = 'var(--hi-text)';
+          btn.style.color = 'var(--hi-surface)';
+        } else {
+          btn.style.backgroundColor = 'var(--hi-surface)';
+          btn.style.color = 'var(--hi-muted)';
+          btn.style.border = '1px solid var(--hi-border)';
+        }
+      });
+      renderValHistoryTable();
+    }
+
+    function renderValHistoryTable() {
+      const allValPicks = [];
+      (HIST.days || []).forEach(d => {
+        (d.picks || []).forEach(p => {
+          if (p.is_value) {
+            allValPicks.push({ ...p, date_label: d.label });
+          }
+        });
+      });
+
+      const filtered = allValPicks.filter(p => {
+        if (valHistFilter === 'W') return p.ats_res === 'W';
+        if (valHistFilter === 'L') return p.ats_res === 'L';
+        return true;
+      });
+
+      const hTbody = document.getElementById('val-history-tbody');
+      if (filtered.length === 0) {
+        hTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No historical Value Picks match this filter.</td></tr>`;
+        return;
+      }
+
+      hTbody.innerHTML = filtered.map(p => {
+        const isWin = p.ats_res === 'W';
+        const resStyle = isWin
+          ? 'color: var(--hi-pos); background-color: var(--hi-surface-alt);'
+          : 'color: var(--hi-neg); background-color: var(--hi-surface-alt);';
+        return `
+          <tr class="hi-row">
+            <td class="py-2 px-3.5">
+              <span class="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded" style="${resStyle}">${isWin ? 'WIN' : 'LOSS'}</span>
+            </td>
+            <td class="py-2 px-3 text-xs whitespace-nowrap" style="color: var(--hi-muted);">${p.date_label}</td>
+            <td class="py-2 px-3.5">
+              <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${p.r1}</span><span class="font-medium">${p.t1}</span>
+              <span class="text-xs mx-1.5" style="color: var(--hi-muted);">${p.neutral ? 'vs.' : 'at'}</span>
+              <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${p.r2}</span><span class="font-medium">${p.t2}</span>
+            </td>
+            <td class="py-2 px-3.5 font-mono text-xs font-bold whitespace-nowrap" style="color: ${isWin ? 'var(--hi-pos)' : 'var(--hi-text)'};">
+              TAKE: ${p.ats_pick}
+            </td>
+            <td class="py-2 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.vegas}</td>
+            <td class="py-2 px-3 text-right font-mono text-xs font-semibold tabular-nums">${p.fav} -${p.spread.toFixed(1)}</td>
+            <td class="py-2 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">+${p.val_edge.toFixed(1)} pt</td>
+            <td class="py-2 px-3.5 text-right font-mono text-xs font-semibold tabular-nums">${p.winner} ${Math.max(p.p1, p.p2)}–${Math.min(p.p1, p.p2)}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     // ==================== HISTORICAL PERFORMANCE FUNCTIONS ====================
@@ -806,7 +988,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const valTag = p.is_value
               ? `<span title="Mispriced Spread Value Pick (${p.val_type}, +${p.val_edge.toFixed(1)} pt edge)" class="mr-1 text-[10px] font-mono px-1 py-0.5 rounded" style="background-color: var(--hi-accent-soft); color: var(--hi-accent-text);">VAL</span>`
               : '';
-            atsCell = `${valTag}<span class="font-semibold" style="color: ${atsColor};">${p.ats_res}</span> <span style="color: var(--hi-muted);">${p.ats_pick}</span>`;
+            const pickLabel = p.is_value ? `TAKE: ${p.ats_pick}` : p.ats_pick;
+            atsCell = `${valTag}<span class="font-semibold" style="color: ${atsColor};">${p.ats_res}</span> <span style="color: ${p.is_value ? 'var(--hi-text)' : 'var(--hi-muted)'}; font-weight: ${p.is_value ? '600' : '400'};">${pickLabel}</span>`;
           }
           return `
             <tr class="hi-row">
@@ -945,6 +1128,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       simB.value = TEAMS[1].team;
 
       initHistoryTab();
+      initValueTab();
       switchMainTab('rankings');
       setSimLoc('neutral');
       renderRankingsTable();
