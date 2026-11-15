@@ -256,6 +256,10 @@ def sync_vegas_spreads():
         if d_iso not in target_isos:
             continue
         t1, t2 = str(g[8]), str(g[14])
+        v_key = f"{d_iso}|{t1}|{t2}"
+        # Once a game's Vegas spread is locked on or before game day, preserve the published morning line
+        if d_iso <= today_et.strftime("%Y-%m-%d") and v_key in vegas_map:
+            continue
         t1_n, t2_n = _norm_team(t1), _norm_team(t2)
         day_odds = [o for o in odds_list if o["date"] == d_iso]
         hit = [o for o in day_odds if (t1_n in o["away_names"] and t2_n in o["home_names"]) or (t1_n in o["home_names"] and t2_n in o["away_names"])]
@@ -271,7 +275,7 @@ def sync_vegas_spreads():
                 v_fav = t1 if t2_is_espn_home else t2
             else:
                 v_fav = t2 if o["spread"] <= 0 else t1
-            vegas_map[f"{d_iso}|{t1}|{t2}"] = {
+            vegas_map[v_key] = {
                 "fav": v_fav,
                 "spread": abs_spr,
                 "details": o["details"],
