@@ -301,6 +301,7 @@ def fetch_latest_2027_data():
                 if len(data) > 1000:
                     dest.write_bytes(data)
         print("✓ Downloaded latest 2026-27 game logs & team records from Bart Torvik.")
+        backfill_from_espn()
     except Exception as exc:
         print(f"! Notice: Bart Torvik returned ({exc}); running ESPN boxscore backfill...")
         backfill_from_espn()
