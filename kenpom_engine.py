@@ -368,10 +368,10 @@ def solve_model(
     np.add.at(At, (i2, i1), w)
     np.add.at(bt, i1, w * yt)
     np.add.at(bt, i2, w * yt)
-    At[idx_teams, idx_teams] += 6.0  # Tempo shrinkage prior
+    At[idx_teams, idx_teams] += 2.0  # Tempo shrinkage prior
     tempo_deltas = np.linalg.solve(At, bt)
     tempo_deltas -= np.mean(tempo_deltas)
-    adj_tempo = mu_tempo + 0.5 * tempo_deltas  # Each team contributes half of game tempo delta
+    adj_tempo = mu_tempo + tempo_deltas  # Expected possessions against an average D-I opponent
 
     # 6. Possession-Weighted Four Factors
     fgm1 = np.array([g["t1_fgm"] for g in games], dtype=np.float64)

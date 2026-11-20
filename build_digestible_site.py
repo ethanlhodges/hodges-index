@@ -68,6 +68,7 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
         if not prior_games:
             # Opening day: pure preseason priors
             mu = mu_26
+            mu_tempo = 68.5
             pw = PRODUCTION_CONFIG["prior_max_weight"]
             raw_list = []
             for t, m in meta_27.items():
@@ -119,6 +120,7 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
                 ref_date=dt_obj,
             )
             mu = res["mu"]
+            mu_tempo = res["mu_tempo"]
             wl_prior = {t: [0, 0] for t in meta_27}
             for pg in prior_games:
                 w_t = pg["t1"] if pg["t1_pts"] > pg["t2_pts"] else pg["t2"]
@@ -158,7 +160,7 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
         for g in day_games:
             t1, t2 = g["t1"], g["t2"]
             r1, r2 = tmap[t1], tmap[t2]
-            est_poss = 0.5 * (r1["tempo"] + r2["tempo"])
+            est_poss = r1["tempo"] + r2["tempo"] - mu_tempo
             hca = 0.0 if g["neutral"] else (std_hca + (alt_hca if r2["alt"] else 0.0))
 
             o1 = r1["adj_o"] + r2["adj_d"] - mu - 0.5 * hca
@@ -516,7 +518,7 @@ def build_site_payload():
         is_neutral = (int(g[7]) == 1)
         is_final = isinstance(g[50], list) and len(g[50]) >= 35
 
-        est_poss = 0.5 * (r1["tempo"] + r2["tempo"])
+        est_poss = r1["tempo"] + r2["tempo"] - mu_tempo
 
         hca_game = 0.0
         if not is_neutral:

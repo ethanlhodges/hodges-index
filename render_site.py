@@ -731,7 +731,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         if (!usePrior) {
           const a = TEAM_MAP[g.t1], b = TEAM_MAP[g.t2];
           rk1 = a.np_rank; rk2 = b.np_rank;
-          const poss = 0.5 * (a.tempo + b.tempo);
+          const poss = a.tempo + b.tempo - CFG.mu_tempo;
           const hca = g.neutral ? 0.0 : (CFG.std_hca + (b.alt ? CFG.alt_hca : 0.0));
           p1 = (a.np_adj_o + b.np_adj_d - mu - 0.5 * hca) * (poss / 100.0);
           p2 = (b.np_adj_o + a.np_adj_d - mu + 0.5 * hca) * (poss / 100.0);
@@ -1061,7 +1061,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const va = tv(a), vb = tv(b);
 
       const mu = usePrior ? SITE_DATA.mu : SITE_DATA.mu_np;
-      const estPoss = 0.5 * (a.tempo + b.tempo);
+      const estPoss = a.tempo + b.tempo - CFG.mu_tempo;
 
       let hcaA = 0.0;
       if (simLoc === 'home_a') hcaA = CFG.std_hca + (a.alt ? CFG.alt_hca : 0.0);
