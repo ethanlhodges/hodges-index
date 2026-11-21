@@ -49,6 +49,15 @@ PRODUCTION_CONFIG = {
     "prob_sigma": 10.5,
     "std_hca": 4.0,
     "alt_hca": 1.55,
+    # Stage-2 Opponent-Adjusted Four-Factor Skill Layer (trained strictly on 5,440 games of 2025-26)
+    "ff_ridge_alpha": 8.0,
+    "ff_weights": {
+        "orb": 0.2228,
+        "tov": 0.2652,
+        "ftr": 0.0168,
+        "efg": 0.1715,
+        "tp": -0.2763,
+    },
 }
 
 
@@ -373,17 +382,62 @@ def solve_model(
     tempo_deltas -= np.mean(tempo_deltas)
     adj_tempo = mu_tempo + tempo_deltas  # Expected possessions against an average D-I opponent
 
-    # 6. Possession-Weighted Four Factors
+    # 6. Possession-Weighted Four Factors & Opponent-Adjusted Four-Factor Skill Layer
     fgm1 = np.array([g["t1_fgm"] for g in games], dtype=np.float64)
     fga1 = np.array([g["t1_fga"] for g in games], dtype=np.float64)
     fgm2 = np.array([g["t2_fgm"] for g in games], dtype=np.float64)
     fga2 = np.array([g["t2_fga"] for g in games], dtype=np.float64)
+    fta1 = np.array([g["t1_fta"] for g in games], dtype=np.float64)
+    fta2 = np.array([g["t2_fta"] for g in games], dtype=np.float64)
     orb1 = np.array([g["t1_orb"] for g in games], dtype=np.float64)
     drb1 = np.array([g["t1_drb"] for g in games], dtype=np.float64)
     orb2 = np.array([g["t2_orb"] for g in games], dtype=np.float64)
     drb2 = np.array([g["t2_drb"] for g in games], dtype=np.float64)
     tov1 = np.array([g["t1_tov"] for g in games], dtype=np.float64)
     tov2 = np.array([g["t2_tov"] for g in games], dtype=np.float64)
+
+    # Shared normal matrix for Opponent-Adjusted Four Factors (solved via Cholesky)
+    ff_alpha = PRODUCTION_CONFIG["ff_ridge_alpha"]
+    ff_w = PRODUCTION_CONFIG["ff_weights"]
+    Aff = np.zeros((2 * n_teams, 2 * n_teams), dtype=np.float64)
+    np.add.at(Aff, (i1, i1), w)
+    np.add.at(Aff, (n_teams + i2, n_teams + i2), w)
+    np.add.at(Aff, (i1, n_teams + i2), w)
+    np.add.at(Aff, (n_teams + i2, i1), w)
+    np.add.at(Aff, (i2, i2), w)
+    np.add.at(Aff, (n_teams + i1, n_teams + i1), w)
+    np.add.at(Aff, (i2, n_teams + i1), w)
+    np.add.at(Aff, (n_teams + i1, i2), w)
+    idx_2n = np.arange(2 * n_teams)
+    Aff[idx_2n, idx_2n] += ff_alpha
+    Lff = np.linalg.cholesky(Aff)
+
+    fga1_safe = np.maximum(1.0, fga1)
+    fga2_safe = np.maximum(1.0, fga2)
+    ff_inputs = {
+        "orb": (orb1 / np.maximum(1.0, orb1 + drb2), orb2 / np.maximum(1.0, orb2 + drb1), ff_w["orb"]),
+        "tov": (tov1 / poss, tov2 / poss, -ff_w["tov"]),
+        "ftr": (fta1 / fga1_safe, fta2 / fga2_safe, ff_w["ftr"]),
+        "efg": ((fgm1 + 0.5 * m3_1) / fga1_safe, (fgm2 + 0.5 * m3_2) / fga2_safe, ff_w["efg"]),
+        "tp": (m3_1 / np.maximum(1.0, a3_1), m3_2 / np.maximum(1.0, a3_2), ff_w["tp"]),
+    }
+    ff_o = np.zeros(n_teams, dtype=np.float64)
+    ff_d = np.zeros(n_teams, dtype=np.float64)
+    if n_games >= 100:
+        for _, (v1, v2, coef) in ff_inputs.items():
+            mu_f = float(np.sum(w * (v1 + v2)) / total_w)
+            yf1 = v1 - mu_f
+            yf2 = v2 - mu_f
+            bf = np.zeros(2 * n_teams, dtype=np.float64)
+            np.add.at(bf, i1, w * yf1)
+            np.add.at(bf, n_teams + i2, w * yf1)
+            np.add.at(bf, i2, w * yf2)
+            np.add.at(bf, n_teams + i1, w * yf2)
+            pf = np.linalg.solve(Lff.T, np.linalg.solve(Lff, bf))
+            od_f = pf[:n_teams] - np.mean(pf[:n_teams])
+            dd_f = pf[n_teams:] - np.mean(pf[n_teams:])
+            ff_o += 100.0 * coef * od_f
+            ff_d += 100.0 * coef * dd_f
 
     tot_fga = np.zeros(n_teams)
     tot_efg_num = np.zeros(n_teams)
@@ -426,6 +480,9 @@ def solve_model(
             "adj_d": adj_d,
             "adj_em": adj_em,
             "tempo": t_tempo,
+            "ff_o": float(ff_o[i]),
+            "ff_d": float(ff_d[i]),
+            "ff_net": float(ff_o[i] - ff_d[i]),
             "efg": efg,
             "orb_rate": orb_r,
             "drb_allow": drb_a,

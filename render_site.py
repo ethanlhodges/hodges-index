@@ -464,7 +464,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </p>
         <ul class="space-y-2.5 list-disc pl-5" style="color: var(--hi-muted);">
           <li><strong style="color: var(--hi-text);">Tempo-Free & Possession-Weighted:</strong> Games are evaluated per 100 possessions (<code class="text-xs font-mono">AdjO</code> and <code class="text-xs font-mono">AdjD</code>) and weighted by possessions. A separate Ridge solve computes opponent-adjusted pace (<code class="text-xs font-mono">AdjT</code>).</li>
-          <li><strong style="color: var(--hi-text);">3-Point Luck Filtering:</strong> Using Empirical Bayes shrinkage toward the 34.0% D-I mean, 15% of single-game 3-point shooting variance is regressed back to each team's baseline before solving the ratings.</li>
+          <li><strong style="color: var(--hi-text);">3-Point Luck Filtering & Four-Factor Skill Layer:</strong> Using Empirical Bayes shrinkage toward the 34.0% D-I mean, 15% of single-game 3-point shooting variance is regressed back to each team's baseline before solving the ratings. On top of raw efficiency, a Stage-2 Opponent-Adjusted Four-Factor Skill layer (validated on 5,440 games of 2025–26) rewards persistent process skills (Offensive Rebounding, Turnover Margin, and eFG%) while penalizing unsustainably hot 3-point shooting.</li>
           <li><strong style="color: var(--hi-text);">Expectation-Anchored Garbage-Time Cap & Recency:</strong> In competitive matchups, single-game margins beyond 26 points per 100 possessions (~18 actual points) receive diminishing returns (25% slope). In heavy buy-game mismatches where the expected spread already exceeds 18 points, the cap anchors at the expected margin so favorites aren't penalized for winning by their expected spread while still discounting garbage-time run-ups beyond expectation by 75%. Games are weighted by recency (<code class="text-xs font-mono">0.9975/day</code>).</li>
           <li><strong style="color: var(--hi-text);">Fading Preseason Priors:</strong> Early-season ratings blend a 0.95x prior from last season that decays linearly to zero by Game 14 in January. You can uncheck <em>Include prior-season weighting</em> at any time to view pure in-season ratings.</li>
           <li><strong style="color: var(--hi-text);">Altitude Home Court:</strong> In addition to standard home-court advantage (+4.0 pts/100 possessions), high-elevation venues receive a learned +1.55 pts/100 adjustment.</li>
@@ -733,8 +733,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           rk1 = a.np_rank; rk2 = b.np_rank;
           const poss = a.tempo + b.tempo - CFG.mu_tempo;
           const hca = g.neutral ? 0.0 : (CFG.std_hca + (b.alt ? CFG.alt_hca : 0.0));
-          p1 = (a.np_adj_o + b.np_adj_d - mu - 0.5 * hca) * (poss / 100.0);
-          p2 = (b.np_adj_o + a.np_adj_d - mu + 0.5 * hca) * (poss / 100.0);
+          p1 = (a.np_adj_o + b.np_adj_d - mu - 0.5 * hca) * (poss / 100.0) + (a.ff_o || 0) + (b.ff_d || 0);
+          p2 = (b.np_adj_o + a.np_adj_d - mu + 0.5 * hca) * (poss / 100.0) + (b.ff_o || 0) + (a.ff_d || 0);
           const diff2 = p2 - p1;
           fav = diff2 >= 0 ? g.t2 : g.t1;
           spr = Math.abs(diff2);
@@ -1067,8 +1067,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       if (simLoc === 'home_a') hcaA = CFG.std_hca + (a.alt ? CFG.alt_hca : 0.0);
       else if (simLoc === 'home_b') hcaA = -(CFG.std_hca + (b.alt ? CFG.alt_hca : 0.0));
 
-      const ptsA = (va.adj_o + vb.adj_d - mu + 0.5 * hcaA) * (estPoss / 100.0);
-      const ptsB = (vb.adj_o + va.adj_d - mu - 0.5 * hcaA) * (estPoss / 100.0);
+      const ffA = (a.ff_o || 0) + (b.ff_d || 0);
+      const ffB = (b.ff_o || 0) + (a.ff_d || 0);
+      const ffDiff = ffA - ffB;
+
+      const ptsA = (va.adj_o + vb.adj_d - mu + 0.5 * hcaA) * (estPoss / 100.0) + ffA;
+      const ptsB = (vb.adj_o + va.adj_d - mu - 0.5 * hcaA) * (estPoss / 100.0) + ffB;
       const diffA = ptsA - ptsB;
 
       const probA = 100.0 / (1.0 + Math.exp(-1.702 * (diffA / CFG.prob_sigma)));
@@ -1091,9 +1095,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const baseDiff = (va.adj_em - vb.adj_em) * (estPoss / 100.0);
       const hcaPts = hcaA * (estPoss / 100.0);
       document.getElementById('sim-math-breakdown').innerHTML = `
-        <span>Neutral efficiency: <strong style="color: var(--hi-text);">${baseDiff >= 0 ? a.team : b.team} +${Math.abs(baseDiff).toFixed(1)}</strong></span>
-        <span>Court/Altitude: <strong style="color: var(--hi-text);">${Math.abs(hcaPts) < 0.05 ? 'Neutral' : (hcaPts > 0 ? a.team + ' +' + hcaPts.toFixed(1) : b.team + ' +' + Math.abs(hcaPts).toFixed(1))}</strong></span>
-        <span>ORB%: <strong style="color: var(--hi-text);">${a.orb}% vs ${b.orb}%</strong></span>
+        <span>Efficiency: <strong style="color: var(--hi-text);">${baseDiff >= 0 ? a.team : b.team} +${Math.abs(baseDiff).toFixed(1)}</strong></span>
+        <span>4-Factor Skill: <strong style="color: var(--hi-text);">${Math.abs(ffDiff) < 0.05 ? 'Even' : (ffDiff > 0 ? a.team + ' +' + ffDiff.toFixed(1) : b.team + ' +' + Math.abs(ffDiff).toFixed(1))}</strong></span>
+        <span>Court/Alt: <strong style="color: var(--hi-text);">${Math.abs(hcaPts) < 0.05 ? 'Neutral' : (hcaPts > 0 ? a.team + ' +' + hcaPts.toFixed(1) : b.team + ' +' + Math.abs(hcaPts).toFixed(1))}</strong></span>
       `;
     }
 

@@ -88,6 +88,8 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
                     "adj_d": round(ad, 2),
                     "adj_em": round(ao - ad, 2),
                     "tempo": 68.5,
+                    "ff_o": 0.0,
+                    "ff_d": 0.0,
                 })
             raw_list.sort(key=lambda x: x["adj_em"], reverse=True)
             for idx, r in enumerate(raw_list, 1):
@@ -141,6 +143,8 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
                     "adj_d": round(r["adj_d"], 2),
                     "adj_em": round(r["adj_em"], 2),
                     "tempo": round(r["tempo"], 1),
+                    "ff_o": round(r["ff_o"], 3),
+                    "ff_d": round(r["ff_d"], 3),
                 })
             tmap = {
                 r["team"]: {**r, "alt": 1 if r["team"] in HIGH_ALTITUDE_TEAMS else 0}
@@ -165,8 +169,8 @@ def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
 
             o1 = r1["adj_o"] + r2["adj_d"] - mu - 0.5 * hca
             o2 = r2["adj_o"] + r1["adj_d"] - mu + 0.5 * hca
-            pred1 = round(o1 * (est_poss / 100.0), 1)
-            pred2 = round(o2 * (est_poss / 100.0), 1)
+            pred1 = round(o1 * (est_poss / 100.0) + r1["ff_o"] + r2["ff_d"], 1)
+            pred2 = round(o2 * (est_poss / 100.0) + r2["ff_o"] + r1["ff_d"], 1)
             pred_margin2 = pred2 - pred1
 
             z = pred_margin2 / prob_sigma
@@ -470,6 +474,9 @@ def build_site_payload():
             "np_o_rk": np_o_rk[t],
             "np_d_rk": np_d_rk[t],
             "tempo": round(r["tempo"], 1),
+            "ff_o": round(r["ff_o"], 3),
+            "ff_d": round(r["ff_d"], 3),
+            "ff_net": round(r["ff_net"], 2),
             "efg": round(100.0 * r["efg"], 1),
             "tov": round(100.0 * r["tov_rate"], 1),
             "orb": round(100.0 * r["orb_rate"], 1),
@@ -527,8 +534,8 @@ def build_site_payload():
         ortg1 = r1["adj_o"] + r2["adj_d"] - mu - 0.5 * hca_game
         ortg2 = r2["adj_o"] + r1["adj_d"] - mu + 0.5 * hca_game
 
-        pred_pts1 = round(ortg1 * (est_poss / 100.0), 1)
-        pred_pts2 = round(ortg2 * (est_poss / 100.0), 1)
+        pred_pts1 = round(ortg1 * (est_poss / 100.0) + r1["ff_o"] + r2["ff_d"], 1)
+        pred_pts2 = round(ortg2 * (est_poss / 100.0) + r2["ff_o"] + r1["ff_d"], 1)
         margin2 = pred_pts2 - pred_pts1
 
         z = margin2 / prob_sigma
