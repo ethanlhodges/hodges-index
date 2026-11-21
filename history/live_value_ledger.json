@@ -1292,10 +1292,10 @@
     "val_edge": 3.2,
     "val_type": "Dog Edge",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "L",
+    "p1": 87,
+    "p2": 69,
+    "winner": "Fordham"
   },
   "2026-11-21|Drake|Missouri St.": {
     "date": "2026-11-21",
@@ -1380,10 +1380,10 @@
     "val_edge": 3.1,
     "val_type": "Dog Edge",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "W",
+    "p1": 68,
+    "p2": 70,
+    "winner": "Eastern Michigan"
   },
   "2026-11-21|Radford|Chattanooga": {
     "date": "2026-11-21",
@@ -1512,10 +1512,10 @@
     "val_edge": 3.5,
     "val_type": "Dog Edge",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "L",
+    "p1": 69,
+    "p2": 62,
+    "winner": "Kent St."
   },
   "2026-11-21|Stony Brook|Saint Peter's": {
     "date": "2026-11-21",
@@ -1534,10 +1534,10 @@
     "val_edge": 2.5,
     "val_type": "Dog Edge",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "L",
+    "p1": 67,
+    "p2": 52,
+    "winner": "Stony Brook"
   },
   "2026-11-21|Air Force|UTSA": {
     "date": "2026-11-21",
@@ -1578,10 +1578,10 @@
     "val_edge": 3.6,
     "val_type": "Dog Edge",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "W",
+    "p1": 87,
+    "p2": 99,
+    "winner": "North Florida"
   },
   "2026-11-21|New Hampshire|New Haven": {
     "date": "2026-11-21",
@@ -1600,10 +1600,10 @@
     "val_edge": 2.2,
     "val_type": "Flip",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "W",
+    "p1": 47,
+    "p2": 50,
+    "winner": "New Haven"
   },
   "2026-11-21|USC Upstate|UNC Greensboro": {
     "date": "2026-11-21",
@@ -1622,9 +1622,9 @@
     "val_edge": 3.9,
     "val_type": "Dog Edge",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "L",
+    "p1": 66,
+    "p2": 85,
+    "winner": "UNC Greensboro"
   }
 }
