@@ -21,6 +21,8 @@ from kenpom_engine import (
 )
 
 HISTORY_DIR = DATA_DIR / "history"
+LIVE_LEDGER_PATH = HISTORY_DIR / "live_value_ledger.json"
+MODEL_VERSION = "v1.1-4factor"
 
 
 def build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map):
@@ -596,26 +598,109 @@ def build_site_payload():
     # 4. Build Walk-Forward Historical Rankings & Daily Picks Performance
     history_data = build_walk_forward_history(meta_27, games_27, priors_26, mu_26, vegas_map)
 
-    # Also archive today's pre-game rankings & today's slate predictions to history/YYYY-MM-DD_pregame.json
+    # 5. Archive today's pre-game snapshot (lock once Vegas lines are present so later runs don't overwrite)
     today_iso = eastern_today.strftime("%Y-%m-%d")
     today_key = f"{eastern_today.month}/{eastern_today.day}/{str(eastern_today.year)[-2:]}"
-    today_pregame = {
-        "date": today_iso,
-        "prior_weight": round(pw, 2),
-        "slate_picks": [sg for sg in slate_games if sg["date"] == today_key],
-        "rankings": [
-            {
-                "rank": r["rank"], "team": r["team"], "conf": r["conf"],
-                "record": r["record"], "gp": r["gp"],
-                "adj_em": r["adj_em"], "adj_o": r["adj_o"], "adj_d": r["adj_d"],
-                "tempo": r["tempo"],
-            }
-            for r in teams_list
-        ],
+    today_slate = [sg for sg in slate_games if sg["date"] == today_key]
+    pregame_path = HISTORY_DIR / f"{today_iso}_pregame.json"
+    should_write_pregame = True
+    if pregame_path.exists():
+        try:
+            existing_pg = json.loads(pregame_path.read_text())
+            if any(g.get("vegas") for g in existing_pg.get("slate_picks", [])):
+                should_write_pregame = False
+        except Exception:
+            pass
+    if should_write_pregame:
+        today_pregame = {
+            "date": today_iso,
+            "model_version": MODEL_VERSION,
+            "prior_weight": round(pw, 2),
+            "slate_picks": today_slate,
+            "rankings": [
+                {
+                    "rank": r["rank"], "team": r["team"], "conf": r["conf"],
+                    "record": r["record"], "gp": r["gp"],
+                    "adj_em": r["adj_em"], "adj_o": r["adj_o"], "adj_d": r["adj_d"],
+                    "tempo": r["tempo"],
+                }
+                for r in teams_list
+            ],
+        }
+        pregame_path.write_text(json.dumps(today_pregame, separators=(",", ":")))
+
+    # 6. Update Immutable Append-Only Live Value Picks Ledger (never retroactively rewrites posted picks)
+    ledger = json.loads(LIVE_LEDGER_PATH.read_text()) if LIVE_LEDGER_PATH.exists() else {}
+    today_lbl = eastern_today.strftime("%a, %b ") + str(eastern_today.day)
+    for sg in today_slate:
+        if sg.get("is_value") and sg.get("vegas") and not sg.get("is_final"):
+            l_key = f"{today_iso}|{sg['t1']}|{sg['t2']}"
+            if l_key not in ledger:
+                ledger[l_key] = {
+                    "date": today_iso,
+                    "date_label": today_lbl,
+                    "t1": sg["t1"], "r1": sg["r1"],
+                    "t2": sg["t2"], "r2": sg["r2"],
+                    "neutral": bool(sg["neutral"]),
+                    "fav": sg["fav"], "spread": sg["spread"],
+                    "pred1": sg["pred1"], "pred2": sg["pred2"],
+                    "vegas": sg["vegas"],
+                    "val_pick": sg["val_pick"],
+                    "val_edge": sg["val_edge"],
+                    "val_type": sg["val_type"],
+                    "model_version": MODEL_VERSION,
+                    "ats_res": "PENDING",
+                    "p1": None, "p2": None, "winner": "",
+                }
+
+    # Grade any completed games strictly against their locked val_pick & spread
+    completed_map = {f"{g['date']}|{g['t1']}|{g['t2']}": g for g in games_27}
+    lw = ll = lp = lpend = 0
+    ledger_list = []
+    for l_key, entry in ledger.items():
+        cg = completed_map.get(l_key)
+        if cg is not None:
+            p1, p2 = int(cg["t1_pts"]), int(cg["t2_pts"])
+            entry["p1"] = p1
+            entry["p2"] = p2
+            entry["winner"] = entry["t2"] if p2 > p1 else entry["t1"]
+            # Parse locked val_pick (e.g. "Santa Clara +1.5")
+            pick_team, pick_spr_str = entry["val_pick"].rsplit(" ", 1)
+            pick_spr = float(pick_spr_str)
+            pick_margin = (p2 - p1) if pick_team == entry["t2"] else (p1 - p2)
+            net = pick_margin + pick_spr
+            if abs(net) < 1e-6:
+                entry["ats_res"] = "P"
+            elif net > 0:
+                entry["ats_res"] = "W"
+            else:
+                entry["ats_res"] = "L"
+
+        res_code = entry.get("ats_res", "PENDING")
+        if res_code == "W":
+            lw += 1
+        elif res_code == "L":
+            ll += 1
+        elif res_code == "P":
+            lp += 1
+        else:
+            lpend += 1
+        ledger_list.append(entry)
+
+    LIVE_LEDGER_PATH.write_text(json.dumps(ledger, indent=2))
+    ledger_list.sort(key=lambda x: (x["date"], x["val_edge"]), reverse=True)
+    # Standard -110 juice profit in units: +0.909u per win, -1.0u per loss
+    live_units = round(0.9091 * lw - 1.0 * ll, 2)
+    live_ledger_payload = {
+        "since": "Nov 14, 2026",
+        "w": lw,
+        "l": ll,
+        "p": lp,
+        "pending": lpend,
+        "pct": round(100.0 * lw / max(1, lw + ll), 1),
+        "units": live_units,
+        "picks": ledger_list,
     }
-    (HISTORY_DIR / f"{today_iso}_pregame.json").write_text(
-        json.dumps(today_pregame, separators=(",", ":"))
-    )
 
     top1 = teams_list[0]
     off1 = max(teams_list, key=lambda x: x["adj_o"])
@@ -625,6 +710,7 @@ def build_site_payload():
 
     return {
         "updated_at": eastern_today.strftime("%b %d, %Y").replace(" 0", " "),
+        "model_version": MODEL_VERSION,
         "games_count": len(games_27),
         "avg_games": round(avg_g, 1),
         "prior_weight": round(pw, 2),
@@ -646,6 +732,7 @@ def build_site_payload():
         "teams": teams_list,
         "slate": slate_games,
         "history": history_data,
+        "live_ledger": live_ledger_payload,
     }
 
 

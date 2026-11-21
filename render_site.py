@@ -235,12 +235,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <div>
             <h2 class="text-sm font-bold">Mispriced Spreads · Proposed Value Bets</h2>
             <p class="text-xs mt-0.5" style="color: var(--hi-muted);">
-              Games where HodgesIndex projects significant value on the Vegas underdog: either an <strong>Outright Flip</strong> (model favors the Vegas underdog to win straight-up with a 1.5–7.5 pt spread edge) or a <strong>Competitive Underdog Edge</strong> (Vegas spread ≤ 12 pts with a 2.5–7.0 pt model edge).
+              Games where HodgesIndex projects significant value on the Vegas underdog (Outright Flip with 1.5–7.5 pt edge, or Competitive Underdog ≤ 12 pts with 2.5–7.0 pt edge).
+              <strong>All posted picks are locked before tip-off in an append-only ledger</strong> (<code class="font-mono">history/live_value_ledger.json</code>) so model upgrades never retroactively alter past bets.
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-4 text-xs font-mono tabular-nums shrink-0">
-            <span>2026–27 Value Record: <strong id="val-tab-record" style="color: var(--hi-pos);">—</strong></span>
-            <span>All Games ATS: <strong id="val-tab-all-ats" style="color: var(--hi-muted);">—</strong></span>
+            <span>Live Locked (Since Nov 14): <strong id="val-tab-record">—</strong></span>
+            <span>Units (-110): <strong id="val-tab-units">—</strong></span>
+            <span style="color: var(--hi-muted);">Model Backtest: <strong id="val-tab-backtest" style="color: var(--hi-muted);">—</strong></span>
           </div>
         </div>
       </div>
@@ -272,14 +274,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Completed Value Picks Season Audit -->
+      <!-- Immutable Live Value Picks Ledger -->
       <div class="space-y-2 pt-2">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--hi-muted);">Completed Value Bets Track Record (2026–27)</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider" style="color: var(--hi-muted);">Immutable Live Picks Ledger (Locked Pre-Game · Since Nov 14)</h3>
           <div class="flex items-center gap-1.5" id="val-hist-filter-group">
             <button onclick="setValHistFilter('ALL')" id="vhfilt-ALL" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">All</button>
             <button onclick="setValHistFilter('W')" id="vhfilt-W" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Wins</button>
             <button onclick="setValHistFilter('L')" id="vhfilt-L" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Losses</button>
+            <button onclick="setValHistFilter('PENDING')" id="vhfilt-PENDING" class="px-2.5 py-1 text-xs font-medium rounded transition cursor-pointer">Pending</button>
           </div>
         </div>
 
@@ -290,11 +293,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <tr>
                   <th class="py-2.5 px-3.5 font-semibold w-16">Result</th>
                   <th class="py-2.5 px-3 font-semibold">Date</th>
-                  <th class="py-2.5 px-3.5 font-semibold">Matchup (Pre-Game Rk)</th>
-                  <th class="py-2.5 px-3.5 font-semibold">Bet Taken</th>
+                  <th class="py-2.5 px-3.5 font-semibold">Matchup (Locked Rk)</th>
+                  <th class="py-2.5 px-3.5 font-semibold">Locked Bet</th>
                   <th class="py-2.5 px-3 font-semibold text-right">Vegas Line</th>
                   <th class="py-2.5 px-3 font-semibold text-right">Model Line</th>
-                  <th class="py-2.5 px-3 font-semibold text-right">Edge</th>
+                  <th class="py-2.5 px-3 font-semibold text-right">Model</th>
                   <th class="py-2.5 px-3.5 font-semibold text-right">Final Score</th>
                 </tr>
               </thead>
@@ -772,14 +775,31 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       switchMainTab('matchup');
     }
 
-    // ==================== STANDALONE VALUE PICKS TAB ====================
+    // ==================== STANDALONE VALUE PICKS TAB (IMMUTABLE LIVE LEDGER) ====================
     function initValueTab() {
-      const valStr = `${HIST.val_w || 0}–${HIST.val_l || 0} (${(HIST.val_pct || 0).toFixed(1)}%)`;
-      const atsStr = `${HIST.ats_w || 0}–${HIST.ats_l || 0} (${(HIST.ats_pct || 0).toFixed(1)}%)`;
-      document.getElementById('val-tab-record').textContent = valStr;
-      document.getElementById('val-tab-all-ats').textContent = atsStr;
+      const LEDGER = SITE_DATA.live_ledger || { w: 0, l: 0, p: 0, pending: 0, pct: 0, units: 0, picks: [] };
+      const liveStr = `${LEDGER.w}–${LEDGER.l}${LEDGER.p ? '–' + LEDGER.p : ''} (${LEDGER.pct.toFixed(1)}%)`;
+      const uVal = LEDGER.units || 0;
+      const unitsStr = `${uVal >= 0 ? '+' : ''}${uVal.toFixed(2)}u`;
+      const btStr = `${HIST.val_w || 0}–${HIST.val_l || 0} (${(HIST.val_pct || 0).toFixed(1)}%)`;
 
-      const upcoming = SLATE.filter(g => g.is_value).sort((a, b) => a.date_idx - b.date_idx || b.val_edge - a.val_edge);
+      const recEl = document.getElementById('val-tab-record');
+      recEl.textContent = liveStr;
+      recEl.style.color = LEDGER.pct >= 52.4 ? 'var(--hi-pos)' : 'var(--hi-neg)';
+
+      const uEl = document.getElementById('val-tab-units');
+      uEl.textContent = unitsStr;
+      uEl.style.color = uVal >= 0 ? 'var(--hi-pos)' : 'var(--hi-neg)';
+
+      document.getElementById('val-tab-backtest').textContent = btStr;
+
+      const hdrVal = document.getElementById('hdr-val');
+      if (hdrVal) {
+        hdrVal.textContent = liveStr;
+        hdrVal.style.color = LEDGER.pct >= 52.4 ? 'var(--hi-pos)' : 'var(--hi-text)';
+      }
+
+      const upcoming = SLATE.filter(g => g.is_value && !g.is_final).sort((a, b) => a.date_idx - b.date_idx || b.val_edge - a.val_edge);
       document.getElementById('val-upcoming-count').textContent = `${upcoming.length} active value bets`;
       const uTbody = document.getElementById('val-upcoming-tbody');
       if (upcoming.length === 0) {
@@ -816,7 +836,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     function setValHistFilter(filt) {
       valHistFilter = filt;
-      ['ALL', 'W', 'L'].forEach(k => {
+      ['ALL', 'W', 'L', 'PENDING'].forEach(k => {
         const btn = document.getElementById('vhfilt-' + k);
         if (!btn) return;
         if (k === filt) {
@@ -832,36 +852,37 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     function renderValHistoryTable() {
-      const allValPicks = [];
-      (HIST.days || []).forEach(d => {
-        (d.picks || []).forEach(p => {
-          if (p.is_value) {
-            allValPicks.push({ ...p, date_label: d.label });
-          }
-        });
-      });
+      const LEDGER = SITE_DATA.live_ledger || { picks: [] };
+      const allValPicks = LEDGER.picks || [];
 
       const filtered = allValPicks.filter(p => {
         if (valHistFilter === 'W') return p.ats_res === 'W';
         if (valHistFilter === 'L') return p.ats_res === 'L';
+        if (valHistFilter === 'PENDING') return p.ats_res === 'PENDING';
         return true;
       });
 
       const hTbody = document.getElementById('val-history-tbody');
       if (filtered.length === 0) {
-        hTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No historical Value Picks match this filter.</td></tr>`;
+        hTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-xs" style="color: var(--hi-muted);">No live ledger Value Picks match this filter.</td></tr>`;
         return;
       }
 
       hTbody.innerHTML = filtered.map(p => {
         const isWin = p.ats_res === 'W';
+        const isLoss = p.ats_res === 'L';
+        const isPend = p.ats_res === 'PENDING';
+        const resLabel = isWin ? 'WIN' : (isLoss ? 'LOSS' : (isPend ? 'LIVE' : 'PUSH'));
         const resStyle = isWin
           ? 'color: var(--hi-pos); background-color: var(--hi-surface-alt);'
-          : 'color: var(--hi-neg); background-color: var(--hi-surface-alt);';
+          : (isLoss ? 'color: var(--hi-neg); background-color: var(--hi-surface-alt);' : 'color: var(--hi-muted); background-color: var(--hi-surface-alt);');
+        const scoreCell = (p.p1 !== null && p.p2 !== null)
+          ? `${p.winner} ${Math.max(p.p1, p.p2)}–${Math.min(p.p1, p.p2)}`
+          : '<span style="color: var(--hi-muted);">Pending</span>';
         return `
           <tr class="hi-row">
             <td class="py-2 px-3.5">
-              <span class="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded" style="${resStyle}">${isWin ? 'WIN' : 'LOSS'}</span>
+              <span class="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded" style="${resStyle}">${resLabel}</span>
             </td>
             <td class="py-2 px-3 text-xs whitespace-nowrap" style="color: var(--hi-muted);">${p.date_label}</td>
             <td class="py-2 px-3.5">
@@ -870,12 +891,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
               <span class="text-xs font-mono mr-1" style="color: var(--hi-muted);">#${p.r2}</span><span class="font-medium">${p.t2}</span>
             </td>
             <td class="py-2 px-3.5 font-mono text-xs font-bold whitespace-nowrap" style="color: ${isWin ? 'var(--hi-pos)' : 'var(--hi-text)'};">
-              TAKE: ${p.ats_pick}
+              TAKE: ${p.val_pick}
             </td>
             <td class="py-2 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">${p.vegas}</td>
             <td class="py-2 px-3 text-right font-mono text-xs font-semibold tabular-nums">${p.fav} -${p.spread.toFixed(1)}</td>
-            <td class="py-2 px-3 text-right font-mono text-xs tabular-nums" style="color: var(--hi-muted);">+${p.val_edge.toFixed(1)} pt</td>
-            <td class="py-2 px-3.5 text-right font-mono text-xs font-semibold tabular-nums">${p.winner} ${Math.max(p.p1, p.p2)}–${Math.min(p.p1, p.p2)}</td>
+            <td class="py-2 px-3 text-right font-mono text-[11px] tabular-nums" style="color: var(--hi-muted);">${p.model_version || 'v1.0'}</td>
+            <td class="py-2 px-3.5 text-right font-mono text-xs font-semibold tabular-nums">${scoreCell}</td>
           </tr>
         `;
       }).join('');
@@ -890,7 +911,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const valStr = `${HIST.val_w || 0}–${HIST.val_l || 0} (${(HIST.val_pct || 0).toFixed(1)}%)`;
       document.getElementById('hdr-record').textContent = recStr;
       document.getElementById('hdr-ats').textContent = atsStr;
-      document.getElementById('hdr-val').textContent = valStr;
       document.getElementById('hist-season-rec').textContent = recStr;
       document.getElementById('hist-season-ats').textContent = atsStr;
       document.getElementById('hist-season-val').textContent = valStr;
