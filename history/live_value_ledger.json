@@ -1666,10 +1666,10 @@
     "val_edge": 2.5,
     "val_type": "Dog Edge",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "W",
+    "p1": 55,
+    "p2": 79,
+    "winner": "Northwestern"
   },
   "2026-11-22|William & Mary|Youngstown St.": {
     "date": "2026-11-22",
@@ -1688,10 +1688,10 @@
     "val_edge": 3.0,
     "val_type": "Flip",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "L",
+    "p1": 75,
+    "p2": 63,
+    "winner": "William & Mary"
   },
   "2026-11-22|New Mexico St.|Robert Morris": {
     "date": "2026-11-22",
@@ -1775,6 +1775,28 @@
     "val_pick": "Maryland Eastern Shore +10.5",
     "val_edge": 3.3,
     "val_type": "Dog Edge",
+    "model_version": "v1.1-4factor",
+    "ats_res": "PENDING",
+    "p1": null,
+    "p2": null,
+    "winner": ""
+  },
+  "2026-11-22|Stephen F. Austin|Temple": {
+    "date": "2026-11-22",
+    "date_label": "Sun, Nov 22",
+    "t1": "Stephen F. Austin",
+    "r1": 111,
+    "t2": "Temple",
+    "r2": 159,
+    "neutral": true,
+    "fav": "Stephen F. Austin",
+    "spread": 2.8,
+    "pred1": 77.1,
+    "pred2": 74.3,
+    "vegas": "Temple -2.5",
+    "val_pick": "Stephen F. Austin +2.5",
+    "val_edge": 5.3,
+    "val_type": "Flip",
     "model_version": "v1.1-4factor",
     "ats_res": "PENDING",
     "p1": null,
