@@ -2154,5 +2154,27 @@
     "p1": null,
     "p2": null,
     "winner": ""
+  },
+  "2026-11-24|Detroit Mercy|North Dakota": {
+    "date": "2026-11-24",
+    "date_label": "Tue, Nov 24",
+    "t1": "Detroit Mercy",
+    "r1": 295,
+    "t2": "North Dakota",
+    "r2": 277,
+    "neutral": true,
+    "fav": "North Dakota",
+    "spread": 2.0,
+    "pred1": 79.6,
+    "pred2": 81.6,
+    "vegas": "North Dakota -4.5",
+    "val_pick": "Detroit Mercy +4.5",
+    "val_edge": 2.5,
+    "val_type": "Dog Edge",
+    "model_version": "v1.1-4factor",
+    "ats_res": "PENDING",
+    "p1": null,
+    "p2": null,
+    "winner": ""
   }
 }
