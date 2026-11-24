@@ -1952,10 +1952,10 @@
     "val_edge": 3.9,
     "val_type": "Flip",
     "model_version": "v1.1-4factor",
-    "ats_res": "PENDING",
-    "p1": null,
-    "p2": null,
-    "winner": ""
+    "ats_res": "L",
+    "p1": 72,
+    "p2": 70,
+    "winner": "St. Bonaventure"
   },
   "2026-11-24|Sam Houston St.|Washington St.": {
     "date": "2026-11-24",
