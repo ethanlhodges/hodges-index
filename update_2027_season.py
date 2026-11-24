@@ -36,6 +36,129 @@ def _norm_team(s: str) -> str:
     return " ".join(s.split())
 
 
+# Complete 1-to-1 alias map for the 20 D-I teams whose ESPN display/location names differ from Bart Torvik
+_ESPN_TO_TORVIK_ALIASES = {
+    _norm_team("App State"): "Appalachian St.",
+    _norm_team("California Baptist"): "Cal Baptist",
+    _norm_team("CA Baptist"): "Cal Baptist",
+    _norm_team("Grambling"): "Grambling St.",
+    _norm_team("Kansas City"): "UMKC",
+    _norm_team("LSU New Orleans"): "New Orleans",
+    _norm_team("LSU N Orleans"): "New Orleans",
+    _norm_team("McNeese"): "McNeese St.",
+    _norm_team("Miami"): "Miami FL",
+    _norm_team("Nicholls"): "Nicholls St.",
+    _norm_team("Ole Miss"): "Mississippi",
+    _norm_team("Omaha"): "Nebraska Omaha",
+    _norm_team("SE Louisiana"): "Southeastern Louisiana",
+    _norm_team("Sam Houston"): "Sam Houston St.",
+    _norm_team("Seattle U"): "Seattle",
+    _norm_team("South Carolina Upstate"): "USC Upstate",
+    _norm_team("SC Upstate"): "USC Upstate",
+    _norm_team("Texas A&M-Corpus Christi"): "Texas A&M Corpus Chris",
+    _norm_team("Texas A&M-CC"): "Texas A&M Corpus Chris",
+    _norm_team("UAlbany"): "Albany",
+    _norm_team("UConn"): "Connecticut",
+    _norm_team("UIC"): "Illinois Chicago",
+    _norm_team("UL Monroe"): "Louisiana Monroe",
+    _norm_team("UT Martin"): "Tennessee Martin",
+}
+
+
+def _espn_name_set(team_obj: dict) -> set[str]:
+    names = {
+        _norm_team(team_obj.get(k, ""))
+        for k in ("location", "shortDisplayName", "abbreviation", "displayName")
+        if team_obj.get(k)
+    }
+    for n in list(names):
+        if n in _ESPN_TO_TORVIK_ALIASES:
+            names.add(_norm_team(_ESPN_TO_TORVIK_ALIASES[n]))
+    return names
+
+
+def _match_espn_to_torvik(team_obj: dict, d1_norm_map: dict[str, str]):
+    for k in ("location", "shortDisplayName", "displayName", "abbreviation"):
+        val = _norm_team(team_obj.get(k, ""))
+        if val in d1_norm_map:
+            return d1_norm_map[val]
+    return None
+
+
+def sync_new_espn_games():
+    """Append newly scheduled D-I games (e.g. MTE / tournament bracket pairings) from ESPN into 2027_super_sked.json."""
+    sked_path = DATA_DIR / "2027_super_sked.json"
+    teams_path = DATA_DIR / "2027_team_results.json"
+    sked = json.loads(sked_path.read_text())
+    teams = json.loads(teams_path.read_text())
+
+    d1_norm_map = {_norm_team(r[1]): r[1] for r in teams}
+    d1_norm_map.update(_ESPN_TO_TORVIK_ALIASES)
+
+    existing = set()
+    for g in sked:
+        if g[6] == 99:
+            continue
+        try:
+            dt = datetime.strptime(str(g[1]), "%m/%d/%y").date()
+        except ValueError:
+            continue
+        existing.add((dt, frozenset((str(g[8]), str(g[14])))))
+
+    today_et = datetime.now(ZoneInfo("America/New_York")).date()
+    window_dates = [today_et + timedelta(days=offset) for offset in range(-5, 4)]
+
+    added = 0
+    for dt in window_dates:
+        ymd = dt.strftime("%Y%m%d")
+        sb_url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?dates={ymd}&groups=50&limit=300"
+        try:
+            req = urllib.request.Request(sb_url, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"})
+            sb_data = json.loads(urllib.request.urlopen(req, timeout=15).read())
+        except Exception as e:
+            print(f"  ! ESPN schedule sync failed for {ymd}: {e}")
+            continue
+
+        for ev in sb_data.get("events", []):
+            st_name = ev.get("status", {}).get("type", {}).get("name", "")
+            if st_name in ("STATUS_POSTPONED", "STATUS_CANCELED"):
+                continue
+            comp = ev["competitions"][0]
+            c0, c1 = comp["competitors"][0], comp["competitors"][1]
+            away_c = c0 if c0.get("homeAway") == "away" else c1
+            home_c = c1 if c0.get("homeAway") == "away" else c0
+
+            t1 = _match_espn_to_torvik(away_c["team"], d1_norm_map)
+            t2 = _match_espn_to_torvik(home_c["team"], d1_norm_map)
+            if not t1 or not t2 or t1 == t2:
+                continue
+
+            pair = frozenset((t1, t2))
+            if any((dt + timedelta(days=d), pair) in existing for d in (-1, 0, 1)):
+                continue
+
+            row = [None] * 55
+            row[0] = f"{t1}{t2}{dt.strftime('%m-%d')}"
+            row[1] = f"{dt.month}/{dt.day}/{str(dt.year)[-2:]}"
+            row[4] = ""
+            row[6] = 0
+            row[7] = 1 if comp.get("neutralSite", False) else 0
+            row[8] = t1
+            row[14] = t2
+            row[24] = ""
+            row[25] = 0.0
+            row[50] = ""
+            sked.append(row)
+            existing.add((dt, pair))
+            added += 1
+
+    if added > 0:
+        sked_path.write_text(json.dumps(sked))
+        print(f"✓ Added {added} newly scheduled D-I games (MTE/tournament pairings) via ESPN API.")
+    else:
+        print("✓ ESPN schedule check complete (no missing D-I matchups in window).")
+
+
 def _parse_made_att(val: str):
     if "-" in str(val):
         a, b = str(val).split("-", 1)
@@ -98,8 +221,8 @@ def backfill_from_espn():
                 continue
             comp = ev["competitions"][0]
             c0, c1 = comp["competitors"][0], comp["competitors"][1]
-            n0 = {_norm_team(c0["team"].get(k, "")) for k in ("location", "shortDisplayName", "abbreviation", "displayName")}
-            n1 = {_norm_team(c1["team"].get(k, "")) for k in ("location", "shortDisplayName", "abbreviation", "displayName")}
+            n0 = _espn_name_set(c0["team"])
+            n1 = _espn_name_set(c1["team"])
             espn_events.append((ev["id"], n0, n1, c0, c1))
 
         if not espn_events:
@@ -213,8 +336,8 @@ def sync_vegas_spreads():
                 c0, c1 = comp["competitors"][0], comp["competitors"][1]
                 home_c = c0 if c0.get("homeAway") == "home" else c1
                 away_c = c1 if c0.get("homeAway") == "home" else c0
-                hn = {_norm_team(home_c["team"].get(k, "")) for k in ("location", "shortDisplayName", "abbreviation", "displayName")}
-                an = {_norm_team(away_c["team"].get(k, "")) for k in ("location", "shortDisplayName", "abbreviation", "displayName")}
+                hn = _espn_name_set(home_c["team"])
+                an = _espn_name_set(away_c["team"])
                 all_events.append((d_iso, ev["id"], an, hn))
         except Exception:
             continue
@@ -305,11 +428,11 @@ def fetch_latest_2027_data():
                 if len(data) > 1000:
                     dest.write_bytes(data)
         print("✓ Downloaded latest 2026-27 game logs & team records from Bart Torvik.")
-        backfill_from_espn()
     except Exception as exc:
-        print(f"! Notice: Bart Torvik returned ({exc}); running ESPN boxscore backfill...")
-        backfill_from_espn()
+        print(f"! Notice: Bart Torvik returned ({exc}); running ESPN schedule & boxscore sync...")
 
+    sync_new_espn_games()
+    backfill_from_espn()
     sync_vegas_spreads()
 
 
