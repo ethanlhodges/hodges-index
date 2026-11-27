@@ -100,50 +100,50 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <div class="max-w-5xl mx-auto space-y-5">
 
     <!-- Clean Editorial Masthead -->
-    <header class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4" style="border-bottom: 2px solid var(--hi-text);">
-      <div>
-        <div class="flex items-baseline gap-3">
-          <h1 class="text-2xl font-bold tracking-tight">HodgesIndex</h1>
-          <span class="text-xs font-medium" style="color: var(--hi-muted);">2026–27 D-I College Basketball</span>
+    <header class="pb-0" style="border-bottom: 2px solid var(--hi-text);">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+            <h1 class="text-2xl font-bold tracking-tight">HodgesIndex</h1>
+            <span class="text-xs font-medium" style="color: var(--hi-muted);">2026–27 D-I College Basketball</span>
+          </div>
+          <p class="text-xs mt-1 leading-relaxed" style="color: var(--hi-muted);">
+            Updated <span id="hdr-date" class="font-medium" style="color: var(--hi-text);">—</span> ·
+            <span id="hdr-games">—</span> games ·
+            SU <span id="hdr-record" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
+            ATS <span id="hdr-ats" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
+            <button onclick="switchMainTab('value')" class="hover:underline cursor-pointer">Value Picks <span id="hdr-val" class="font-mono font-semibold tabular-nums" style="color: var(--hi-pos);">—</span></button> ·
+            Prior weight <span id="hdr-prior" class="font-mono tabular-nums" style="color: var(--hi-text);">—</span>
+          </p>
         </div>
-        <p class="text-xs mt-1" style="color: var(--hi-muted);">
-          Updated <span id="hdr-date" class="font-medium" style="color: var(--hi-text);">—</span> ·
-          <span id="hdr-games">—</span> games ·
-          SU <span id="hdr-record" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
-          ATS <span id="hdr-ats" class="font-mono font-medium tabular-nums" style="color: var(--hi-text);">—</span> ·
-          <button onclick="switchMainTab('value')" class="hover:underline cursor-pointer">Value Picks <span id="hdr-val" class="font-mono font-semibold tabular-nums" style="color: var(--hi-pos);">—</span></button> ·
-          Prior weight <span id="hdr-prior" class="font-mono tabular-nums" style="color: var(--hi-text);">—</span>
-        </p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-5 text-sm">
-        <nav class="flex flex-wrap items-center gap-5">
-          <button onclick="switchMainTab('rankings')" id="nav-rankings" class="pb-1 font-semibold transition cursor-pointer">
-            Rankings
-          </button>
-          <button onclick="switchMainTab('slate')" id="nav-slate" class="pb-1 font-medium transition cursor-pointer">
-            Games
-          </button>
-          <button onclick="switchMainTab('value')" id="nav-value" class="pb-1 font-medium transition cursor-pointer">
-            Value Picks
-          </button>
-          <button onclick="switchMainTab('history')" id="nav-history" class="pb-1 font-medium transition cursor-pointer">
-            Performance
-          </button>
-          <button onclick="switchMainTab('matchup')" id="nav-matchup" class="pb-1 font-medium transition cursor-pointer">
-            Predictor
-          </button>
-          <button onclick="switchMainTab('model')" id="nav-model" class="pb-1 font-medium transition cursor-pointer">
-            Methodology
-          </button>
-        </nav>
 
         <button onclick="toggleTheme()" id="theme-btn"
-          class="px-2.5 py-1 text-xs font-medium rounded border transition cursor-pointer"
+          class="shrink-0 px-2.5 py-1 text-xs font-medium rounded border transition cursor-pointer"
           style="border-color: var(--hi-border); color: var(--hi-muted); background-color: var(--hi-surface);">
           Dark
         </button>
       </div>
+
+      <nav class="flex items-center gap-6 overflow-x-auto whitespace-nowrap text-sm mt-3 -mb-[2px]">
+        <button onclick="switchMainTab('rankings')" id="nav-rankings" class="shrink-0 pb-2.5 font-semibold transition cursor-pointer">
+          Rankings
+        </button>
+        <button onclick="switchMainTab('slate')" id="nav-slate" class="shrink-0 pb-2.5 font-medium transition cursor-pointer">
+          Games
+        </button>
+        <button onclick="switchMainTab('value')" id="nav-value" class="shrink-0 pb-2.5 font-medium transition cursor-pointer">
+          Value Picks
+        </button>
+        <button onclick="switchMainTab('history')" id="nav-history" class="shrink-0 pb-2.5 font-medium transition cursor-pointer">
+          Performance
+        </button>
+        <button onclick="switchMainTab('matchup')" id="nav-matchup" class="shrink-0 pb-2.5 font-medium transition cursor-pointer">
+          Predictor
+        </button>
+        <button onclick="switchMainTab('model')" id="nav-model" class="shrink-0 pb-2.5 font-medium transition cursor-pointer">
+          Methodology
+        </button>
+      </nav>
     </header>
 
     <!-- ==================== TAB 1: RANKINGS TABLE ==================== -->
